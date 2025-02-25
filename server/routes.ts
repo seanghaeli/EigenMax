@@ -3,6 +3,38 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { insertVaultSchema, insertTransactionSchema, insertProtocolSchema, insertPriceSchema } from "@shared/schema";
 
+// Function to fetch ETH price from CoinGecko
+async function fetchEthPrice() {
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    const data = await response.json();
+    return data.ethereum.usd;
+  } catch (error) {
+    console.error('Error fetching ETH price:', error);
+    return null;
+  }
+}
+
+// Function to fetch historical ETH prices
+async function fetchHistoricalEthPrices() {
+  try {
+    // Get data for the last hour with 5-minute intervals
+    const now = Math.floor(Date.now() / 1000);
+    const oneHourAgo = now - 3600;
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/coins/ethereum/market_chart/range?vs_currency=usd&from=${oneHourAgo}&to=${now}`
+    );
+    const data = await response.json();
+    return data.prices.map(([timestamp, price]: [number, number]) => ({
+      timestamp: new Date(timestamp * 1000), // Corrected timestamp conversion
+      price
+    }));
+  } catch (error) {
+    console.error('Error fetching historical ETH prices:', error);
+    return [];
+  }
+}
+
 class YieldOptimizer {
   async checkAndOptimize(vault: any) {
     const protocols = await storage.getActiveProtocols();
@@ -35,19 +67,17 @@ class YieldOptimizer {
   }
 }
 
-// Function to fetch ETH price from CoinGecko
-async function fetchEthPrice() {
-  try {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-    const data = await response.json();
-    return data.ethereum.usd;
-  } catch (error) {
-    console.error('Error fetching ETH price:', error);
-    return null;
-  }
-}
-
 export async function registerRoutes(app: Express) {
+  // Initialize historical price data
+  const historicalPrices = await fetchHistoricalEthPrices();
+  for (const { timestamp, price } of historicalPrices) {
+    await storage.createPrice({
+      asset: "ethereum",
+      price,
+      timestamp,
+    });
+  }
+
   // Protocol routes
   app.get("/api/protocols", async (_req, res) => {
     const protocols = await storage.getProtocols();
