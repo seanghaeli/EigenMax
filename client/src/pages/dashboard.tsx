@@ -58,15 +58,38 @@ export default function Dashboard() {
 
   const optimizeVault = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("POST", `/api/vaults/${id}/optimize`);
+      const response = await apiRequest("POST", `/api/vaults/${id}/optimize`);
+      return response;
     },
-    onSuccess: (_, id) => {
+    onSuccess: (data, id) => {
       queryClient.invalidateQueries({ queryKey: [`/api/vaults/${id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vaults/${id}/transactions`] });
-      toast({
-        title: "Optimization complete",
-        description: "The vault has been optimized for best yields.",
-      });
+      
+      if (data.vault) {
+        const changes = {
+          oldProtocol: data.vault.protocol,
+          newApy: data.vault.apy,
+          amount: data.vault.balance,
+        };
+        
+        Dialog.show({
+          title: "Portfolio Changes",
+          content: (
+            <div className="space-y-4">
+              <p>The following changes were made to your portfolio:</p>
+              <ul className="list-disc pl-4">
+                <li>Moved {changes.amount.toLocaleString()} USD to {changes.oldProtocol}</li>
+                <li>New APY: {changes.newApy}%</li>
+              </ul>
+            </div>
+          )
+        });
+      } else {
+        toast({
+          title: "No changes needed",
+          description: "Your vault is already optimized for best yields.",
+        });
+      }
     },
   });
 
