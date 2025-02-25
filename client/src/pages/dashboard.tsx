@@ -13,6 +13,7 @@ import YieldChart from "@/components/yield-chart";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Protocol, InsertProtocol, Vault } from "@shared/schema";
 import { insertProtocolSchema } from "@shared/schema";
+import PriceFeedPanel from "@/components/price-feed-panel"; // Added import
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -64,14 +65,14 @@ export default function Dashboard() {
     onSuccess: (data, id) => {
       queryClient.invalidateQueries({ queryKey: [`/api/vaults/${id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vaults/${id}/transactions`] });
-      
+
       if (data.vault) {
         const changes = {
           oldProtocol: data.vault.protocol,
           newApy: data.vault.apy,
           amount: data.vault.balance,
         };
-        
+
         Dialog.show({
           title: "Portfolio Changes",
           content: (
