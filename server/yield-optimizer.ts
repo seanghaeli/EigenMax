@@ -28,18 +28,31 @@ export class YieldOptimizer {
     );
   }
 
+  private eigenAVS = new EigenAVSService(
+    process.env.ETH_RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/your-api-key',
+    process.env.PRIVATE_KEY || 'your-private-key'
+  );
+
   private async rebalanceVault(vault: Vault, newProtocol: string) {
     // Create rebalance transaction
-    await storage.createTransaction({
+    const transaction = await storage.createTransaction({
       vaultId: vault.id,
       type: "rebalance",
       amount: vault.balance,
       timestamp: new Date()
     });
 
+    // Verify through EigenLayer
+    const verification = await this.eigenAVS.verifyTransaction(transaction.id.toString());
+    
+    if (!verification.verified) {
+      throw new Error('Transaction verification failed');
+    }
+
     // Update vault protocol
     return storage.updateVault(vault.id, {
-      protocol: newProtocol
+      protocol: newProtocol,
+      lastVerification: verification
     });
   }
 }
