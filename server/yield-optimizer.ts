@@ -11,15 +11,8 @@ export class YieldOptimizer {
       return null;
     }
 
-    const tokenPrice = await PriceService.getTokenPrice(vault.token);
     const vaults = await storage.getVaults();
     const bestProtocol = this.findBestProtocol(vaults);
-    
-    // Include price data in response
-    const vaultWithPrice = {
-      ...vault,
-      tokenPrice
-    };
 
     if (bestProtocol.protocol !== vault.protocol && 
         bestProtocol.apy - vault.apy > this.MIN_APY_DIFFERENCE) {

@@ -43,16 +43,6 @@ export default function VaultPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Token Price</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold mb-4">${vault.tokenPrice?.toFixed(2) || '0.00'}</div>
-            <PriceChart token={vault.token} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>Auto-Optimization</CardTitle>
           </CardHeader>
           <CardContent>
