@@ -36,21 +36,6 @@ class YieldOptimizer {
 }
 
 export async function registerRoutes(app: Express) {
-  // Initialize historical price data (past hour)
-  const startTime = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
-  const basePrice = 3150.75;
-  for (let i = 0; i < 60; i++) { // One data point per minute
-    const timestamp = new Date(startTime.getTime() + i * 60 * 1000);
-    const volatility = 0.0005; // 0.05% per minute
-    const randomChange = (Math.random() - 0.5) * 2 * volatility;
-    const price = basePrice * (1 + randomChange);
-    await storage.createPrice({
-      asset: "ethereum",
-      price,
-      timestamp,
-    });
-  }
-
   // Protocol routes
   app.get("/api/protocols", async (_req, res) => {
     const protocols = await storage.getProtocols();
@@ -82,19 +67,17 @@ export async function registerRoutes(app: Express) {
     res.json(prices);
   });
 
-  // Simulate price updates every minute
+  // Simulate price updates
   setInterval(async () => {
     const lastPrice = await storage.getLatestPrice("ethereum");
     const basePrice = lastPrice?.price || 3000;
-    const volatility = 0.0005; // 0.05% per minute
-    const randomChange = (Math.random() - 0.5) * 2 * volatility;
-    const newPrice = basePrice * (1 + randomChange);
+    const newPrice = basePrice * (1 + (Math.random() - 0.5) * 0.02); // ±1% change
     await storage.createPrice({
       asset: "ethereum",
       price: newPrice,
       timestamp: new Date(),
     });
-  }, 60000); // Update every minute
+  }, 10000); // Update every 10 seconds
 
   // Vault routes
   app.get("/api/vaults", async (_req, res) => {
