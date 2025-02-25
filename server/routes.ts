@@ -39,28 +39,60 @@ class YieldOptimizer {
   async checkAndOptimize(vault: any) {
     const protocols = await storage.getActiveProtocols();
     const ethPrice = await storage.getLatestPrice("ethereum");
+    const priceHistory = await storage.getPrices("ethereum");
 
-    // Consider price trends in optimization strategy
+    // Calculate price trend
+    const priceChange = priceHistory.length > 1 
+      ? (priceHistory[0].price - priceHistory[priceHistory.length - 1].price) / priceHistory[priceHistory.length - 1].price
+      : 0;
+
+    // Enhanced scoring that considers:
+    // 1. Base APY
+    // 2. Current ETH price relative to baseline (3000)
+    // 3. Recent price trend
     const bestProtocol = protocols.reduce((best, current) => {
-      const currentScore = current.apy * (ethPrice ? ethPrice.price / 3000 : 1); // Price-weighted APY
-      const bestScore = best.apy * (ethPrice ? ethPrice.price / 3000 : 1);
+      const priceMultiplier = (ethPrice?.price || 3000) / 3000;
+      const trendMultiplier = 1 + (priceChange * 0.5); // Price trend has 50% weight
+
+      const currentScore = current.apy * priceMultiplier * trendMultiplier;
+      const bestScore = best.apy * priceMultiplier * trendMultiplier;
+
       return currentScore > bestScore ? current : best;
     });
 
     if (bestProtocol.name !== vault.protocol) {
-      const transaction = await storage.createTransaction({
-        vaultId: vault.id,
-        type: "rebalance",
-        amount: vault.balance,
-        timestamp: new Date(),
-      });
+      // Include transaction cost consideration (0.1% fee assumption)
+      const transactionCost = vault.balance * 0.001;
+      const currentYearlyYield = vault.balance * (vault.apy / 100);
+      const newYearlyYield = vault.balance * (bestProtocol.apy / 100);
+      const yearlyBenefit = newYearlyYield - currentYearlyYield;
 
-      const updatedVault = await storage.updateVault(vault.id, {
-        protocol: bestProtocol.name,
-        apy: bestProtocol.apy,
-      });
+      // Only rebalance if benefit exceeds transaction costs
+      if (yearlyBenefit > transactionCost) {
+        const transaction = await storage.createTransaction({
+          vaultId: vault.id,
+          type: "rebalance",
+          amount: vault.balance,
+          timestamp: new Date(),
+        });
 
-      return { vault: updatedVault, transaction };
+        const updatedVault = await storage.updateVault(vault.id, {
+          protocol: bestProtocol.name,
+          apy: bestProtocol.apy,
+        });
+
+        return {
+          vault: updatedVault,
+          transaction,
+          analysis: {
+            priceChange: priceChange * 100,
+            currentYield: currentYearlyYield,
+            projectedYield: newYearlyYield,
+            transactionCost,
+            netBenefit: yearlyBenefit - transactionCost
+          }
+        };
+      }
     }
 
     return null;

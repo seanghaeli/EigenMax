@@ -60,7 +60,7 @@ export default function Dashboard() {
   const optimizeVault = useMutation({
     mutationFn: async (id: number) => {
       const response = await apiRequest("POST", `/api/vaults/${id}/optimize`);
-      return response;
+      return response.json();
     },
     onSuccess: (data, id) => {
       queryClient.invalidateQueries({ queryKey: [`/api/vaults/${id}`] });
@@ -73,22 +73,23 @@ export default function Dashboard() {
           amount: data.vault.balance,
         };
 
-        Dialog.show({
-          title: "Portfolio Changes",
-          content: (
-            <div className="space-y-4">
-              <p>The following changes were made to your portfolio:</p>
-              <ul className="list-disc pl-4">
-                <li>Moved {changes.amount.toLocaleString()} USD to {changes.oldProtocol}</li>
-                <li>New APY: {changes.newApy}%</li>
-              </ul>
+        toast({
+          title: "Portfolio Rebalanced",
+          description: (
+            <div className="space-y-2">
+              <p>Moved ${changes.amount.toLocaleString()} to {changes.oldProtocol}</p>
+              <p>New APY: {changes.newApy}%</p>
+              <p className="text-sm text-muted-foreground">
+                ETH Price Change: {data.analysis.priceChange.toFixed(2)}%<br/>
+                Projected Annual Benefit: ${data.analysis.netBenefit.toLocaleString()}
+              </p>
             </div>
-          )
+          ),
         });
       } else {
         toast({
-          title: "No changes needed",
-          description: "Your vault is already optimized for best yields.",
+          title: "No Changes Needed",
+          description: "Your vault is already optimized for best yields considering current market conditions.",
         });
       }
     },
