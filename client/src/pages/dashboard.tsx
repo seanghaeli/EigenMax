@@ -1,23 +1,136 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
 import ProtocolCard from "@/components/protocol-card";
 import YieldChart from "@/components/yield-chart";
-import type { Vault } from "@shared/schema";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Protocol, InsertProtocol, Vault } from "@shared/schema";
+import { insertProtocolSchema } from "@shared/schema";
 
 export default function Dashboard() {
-  const { data: vaults, isLoading } = useQuery<Vault[]>({
+  const { toast } = useToast();
+  const form = useForm<InsertProtocol>({
+    resolver: zodResolver(insertProtocolSchema),
+    defaultValues: {
+      name: "",
+      apy: 0,
+      tvl: 0,
+      active: true,
+    },
+  });
+
+  const { data: protocols = [] } = useQuery<Protocol[]>({
+    queryKey: ["/api/protocols"],
+  });
+
+  const { data: vaults } = useQuery<Vault[]>({
     queryKey: ["/api/vaults"],
   });
 
-  if (isLoading) {
-    return <div>Loading...</div>;
+  const addProtocol = useMutation({
+    mutationFn: async (data: InsertProtocol) => {
+      await apiRequest("POST", "/api/protocols", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/protocols"] });
+      toast({
+        title: "Protocol added",
+        description: "The protocol has been successfully added.",
+      });
+    },
+  });
+
+  const toggleProtocol = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/protocols/${id}/toggle`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/protocols"] });
+    },
+  });
+
+  const optimizeVault = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/vaults/${id}/optimize`);
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/vaults/${id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vaults/${id}/transactions`] });
+      toast({
+        title: "Optimization complete",
+        description: "The vault has been optimized for best yields.",
+      });
+    },
+  });
+
+  function onSubmit(data: InsertProtocol) {
+    addProtocol.mutate(data);
   }
 
   return (
     <div className="min-h-screen bg-neutral-900 text-gray-100 p-6">
-      <h1 className="text-3xl font-bold mb-8">Yield Optimization Dashboard</h1>
-      
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Yield Optimization Dashboard</h1>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>Add Protocol</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Protocol</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Protocol Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="apy"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>APY (%)</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" step="0.1" />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tvl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>TVL ($)</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit">Add Protocol</Button>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {vaults?.map((vault) => (
           <Link key={vault.id} href={`/vault/${vault.id}`}>
@@ -33,10 +146,20 @@ export default function Dashboard() {
                   <span className="text-muted-foreground">{vault.protocol}</span>
                   <span className="text-xl">${vault.balance.toLocaleString()}</span>
                 </div>
-                <div className="mt-2">
+                <div className="mt-2 flex justify-between items-center">
                   <span className={`px-2 py-1 rounded text-xs ${vault.autoMode ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>
                     {vault.autoMode ? 'Auto' : 'Manual'}
                   </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      optimizeVault.mutate(vault.id);
+                    }}
+                  >
+                    Re-evaluate
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -50,10 +173,23 @@ export default function Dashboard() {
             <CardTitle>Protocol Distribution</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            <ProtocolCard name="AAVE" apy={4.5} tvl={10000000} />
-            <ProtocolCard name="Compound" apy={3.8} tvl={8500000} />
-            <ProtocolCard name="Morpho" apy={4.2} tvl={7000000} />
-            <ProtocolCard name="Moonwell" apy={3.5} tvl={5000000} />
+            {protocols.map((protocol) => (
+              <div key={protocol.id} className="relative">
+                <ProtocolCard
+                  name={protocol.name}
+                  apy={protocol.apy}
+                  tvl={protocol.tvl}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => toggleProtocol.mutate(protocol.id)}
+                >
+                  {protocol.active ? 'Disable' : 'Enable'}
+                </Button>
+              </div>
+            ))}
           </CardContent>
         </Card>
 

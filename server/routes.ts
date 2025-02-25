@@ -1,9 +1,62 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertVaultSchema, insertTransactionSchema } from "@shared/schema";
+import { insertVaultSchema, insertTransactionSchema, insertProtocolSchema } from "@shared/schema";
+
+class YieldOptimizer {
+  async checkAndOptimize(vault: any) {
+    const protocols = await storage.getActiveProtocols();
+    const bestProtocol = protocols.reduce((best, current) => 
+      current.apy > best.apy ? current : best
+    );
+
+    if (bestProtocol.name !== vault.protocol) {
+      const transaction = await storage.createTransaction({
+        vaultId: vault.id,
+        type: "rebalance",
+        amount: vault.balance,
+        timestamp: new Date(),
+      });
+
+      const updatedVault = await storage.updateVault(vault.id, {
+        protocol: bestProtocol.name,
+        apy: bestProtocol.apy,
+      });
+
+      return { vault: updatedVault, transaction };
+    }
+
+    return null;
+  }
+}
 
 export async function registerRoutes(app: Express) {
+  // Protocol routes
+  app.get("/api/protocols", async (_req, res) => {
+    const protocols = await storage.getProtocols();
+    res.json(protocols);
+  });
+
+  app.post("/api/protocols", async (req, res) => {
+    const result = insertProtocolSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ message: "Invalid protocol data" });
+    }
+    const protocol = await storage.createProtocol(result.data);
+    res.json(protocol);
+  });
+
+  app.patch("/api/protocols/:id", async (req, res) => {
+    const protocol = await storage.updateProtocol(Number(req.params.id), req.body);
+    res.json(protocol);
+  });
+
+  app.post("/api/protocols/:id/toggle", async (req, res) => {
+    const protocol = await storage.toggleProtocol(Number(req.params.id));
+    res.json(protocol);
+  });
+
+  // Vault routes
   app.get("/api/vaults", async (_req, res) => {
     const vaults = await storage.getVaults();
     res.json(vaults);
@@ -32,7 +85,7 @@ export async function registerRoutes(app: Express) {
   app.post("/api/vaults/:id/optimize", async (req, res) => {
     const vault = await storage.getVault(Number(req.params.id));
     if (!vault) return res.status(404).json({ message: "Vault not found" });
-    
+
     const optimizer = new YieldOptimizer();
     const result = await optimizer.checkAndOptimize(vault);
     res.json(result || vault);
