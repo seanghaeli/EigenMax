@@ -29,6 +29,15 @@ export async function registerRoutes(app: Express) {
     res.json(vault);
   });
 
+  app.post("/api/vaults/:id/optimize", async (req, res) => {
+    const vault = await storage.getVault(Number(req.params.id));
+    if (!vault) return res.status(404).json({ message: "Vault not found" });
+    
+    const optimizer = new YieldOptimizer();
+    const result = await optimizer.checkAndOptimize(vault);
+    res.json(result || vault);
+  });
+
   app.get("/api/vaults/:id/transactions", async (req, res) => {
     const transactions = await storage.getTransactions(Number(req.params.id));
     res.json(transactions);
