@@ -67,32 +67,7 @@ export async function registerRoutes(app: Express) {
     res.json(prices);
   });
 
-  // Load initial hour of price data
-  const loadInitialPrices = async () => {
-    try {
-      const response = await fetch('https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=0.0417&interval=minute');
-      const data = await response.json();
-      
-      // Clear existing prices
-      await storage.clearPrices("ethereum");
-      
-      // Store each price point
-      for (const [timestamp, price] of data.prices) {
-        await storage.createPrice({
-          asset: "ethereum",
-          price: price,
-          timestamp: new Date(timestamp),
-        });
-      }
-    } catch (error) {
-      console.error('Failed to fetch initial ETH prices:', error);
-    }
-  };
-
-  // Load initial data
-  loadInitialPrices();
-
-  // Update price every minute
+  // Fetch real price updates from CoinGecko
   setInterval(async () => {
     try {
       const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
@@ -107,7 +82,7 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       console.error('Failed to fetch ETH price:', error);
     }
-  }, 60000); // Update every minute
+  }, 10000); // Update every 10 seconds
 
   // Vault routes
   app.get("/api/vaults", async (_req, res) => {

@@ -147,18 +147,10 @@ export class MemStorage implements IStorage {
     const price: Price = {
       ...insertPrice,
       id,
-      timestamp: new Date(insertPrice.timestamp),
+      timestamp: new Date(),
     };
     this.prices.set(id, price);
     return price;
-  }
-
-  async clearPrices(asset: string): Promise<void> {
-    const priceIds = Array.from(this.prices.entries())
-      .filter(([_, price]) => price.asset === asset)
-      .map(([id]) => id);
-    
-    priceIds.forEach(id => this.prices.delete(id));
   }
 }
 
