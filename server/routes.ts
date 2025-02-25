@@ -67,21 +67,16 @@ export async function registerRoutes(app: Express) {
     res.json(prices);
   });
 
-  // Fetch real price updates from CoinGecko
+  // Simulate price updates
   setInterval(async () => {
-    try {
-      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-      const data = await response.json();
-      const price = data.ethereum.usd;
-
-      await storage.createPrice({
-        asset: "ethereum",
-        price: price,
-        timestamp: new Date(),
-      });
-    } catch (error) {
-      console.error('Failed to fetch ETH price:', error);
-    }
+    const lastPrice = await storage.getLatestPrice("ethereum");
+    const basePrice = lastPrice?.price || 3000;
+    const newPrice = basePrice * (1 + (Math.random() - 0.5) * 0.02); // ±1% change
+    await storage.createPrice({
+      asset: "ethereum",
+      price: newPrice,
+      timestamp: new Date(),
+    });
   }, 10000); // Update every 10 seconds
 
   // Vault routes

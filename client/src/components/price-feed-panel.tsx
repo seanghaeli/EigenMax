@@ -43,14 +43,12 @@ export default function PriceFeedPanel() {
                 stroke="#6b7280"
                 fontSize={12}
                 tickFormatter={(time) => time.split(':')[1]}
-                label={{ value: "Time (minutes)", position: "bottom", offset: 0, fontSize: 12, fill: "#6b7280" }}
               />
               <YAxis
                 stroke="#6b7280"
                 fontSize={12}
                 domain={['auto', 'auto']}
                 tickFormatter={(value) => `$${value.toLocaleString()}`}
-                label={{ value: "Price (USD)", angle: -90, position: "left", offset: 0, fontSize: 12, fill: "#6b7280" }}
               />
               <Tooltip
                 contentStyle={{
