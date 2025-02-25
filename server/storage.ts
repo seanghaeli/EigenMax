@@ -51,8 +51,21 @@ export class MemStorage implements IStorage {
     this.createVault({ name: "DAI Vault", balance: 5000, autoMode: false, protocol: "Compound", apy: 3.8 });
     this.createVault({ name: "USDT Vault", balance: 7500, autoMode: true, protocol: "Morpho", apy: 4.2 });
 
-    // Add mock price data
-    this.createPrice({ asset: "ethereum", price: 3150.75, timestamp: new Date() });
+    // Initialize with real price data
+    this.initializePriceData();
+  }
+
+  private async initializePriceData() {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+      const data = await response.json();
+      const price = data.ethereum.usd;
+      this.createPrice({ asset: "ethereum", price, timestamp: new Date() });
+    } catch (error) {
+      console.error('Failed to fetch initial ETH price:', error);
+      // Fallback to a default price if API call fails
+      this.createPrice({ asset: "ethereum", price: 2000, timestamp: new Date() });
+    }
   }
 
   // Protocol methods
