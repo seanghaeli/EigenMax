@@ -57,16 +57,10 @@ export class MemStorage implements IStorage {
 
   private async initializePriceData() {
     try {
-      const response = await fetch('https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=0.0417&interval=minute');
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
       const data = await response.json();
-      
-      for (const [timestamp, price] of data.prices) {
-        await this.createPrice({
-          asset: "ethereum",
-          price: price,
-          timestamp: new Date(timestamp)
-        });
-      }
+      const price = data.ethereum.usd;
+      this.createPrice({ asset: "ethereum", price, timestamp: new Date() });
     } catch (error) {
       console.error('Failed to fetch initial ETH price:', error);
       // Fallback to a default price if API call fails
