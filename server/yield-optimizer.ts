@@ -22,10 +22,34 @@ export class YieldOptimizer {
     return null;
   }
 
-  private findBestProtocol(vaults: Vault[]) {
-    return vaults.reduce((best, current) => 
-      current.apy > best.apy ? current : best
-    );
+  private async calculateRealAPY(protocol: Protocol): Promise<number> {
+    const prices = await storage.getPrices("ethereum");
+    if (prices.length < 2) return protocol.apy; // Fallback to static APY
+
+    // Calculate returns over available time period
+    const oldestPrice = prices[prices.length - 1].price;
+    const latestPrice = prices[0].price;
+    const timeDiffHours = (prices[0].timestamp.getTime() - prices[prices.length - 1].timestamp.getTime()) / (1000 * 3600);
+    
+    // Calculate period return and annualize it
+    const periodReturn = (latestPrice - oldestPrice) / oldestPrice;
+    const annualizedReturn = (Math.pow(1 + periodReturn, 365 * 24 / timeDiffHours) - 1) * 100;
+    
+    // Blend protocol base APY with market performance
+    return (protocol.apy * 0.7) + (annualizedReturn * 0.3);
+  }
+
+  private async findBestProtocol(vaults: Vault[]) {
+    const protocols = await storage.getProtocols();
+    const apyPromises = protocols.map(async (p) => ({
+      protocol: p,
+      realAPY: await this.calculateRealAPY(p)
+    }));
+    
+    const results = await Promise.all(apyPromises);
+    return results.reduce((best, current) => 
+      current.realAPY > best.realAPY ? current : best
+    ).protocol;
   }
 
   private eigenAVS = new EigenAVSService(
