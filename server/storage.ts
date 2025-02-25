@@ -52,7 +52,7 @@ export class MemStorage implements IStorage {
     this.createVault({ name: "USDT Vault", balance: 7500, autoMode: true, protocol: "Morpho", apy: 4.2 });
 
     // Add mock price data
-    this.createPrice({ asset: "ethereum", price: 3150.75, timestamp: new Date() });
+    this.createPrice({ asset: "ethereum", price: 3200.00, timestamp: new Date() });
   }
 
   // Protocol methods
