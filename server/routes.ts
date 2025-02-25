@@ -1,14 +1,19 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertVaultSchema, insertTransactionSchema, insertProtocolSchema } from "@shared/schema";
+import { insertVaultSchema, insertTransactionSchema, insertProtocolSchema, insertPriceSchema } from "@shared/schema";
 
 class YieldOptimizer {
   async checkAndOptimize(vault: any) {
     const protocols = await storage.getActiveProtocols();
-    const bestProtocol = protocols.reduce((best, current) => 
-      current.apy > best.apy ? current : best
-    );
+    const ethPrice = await storage.getLatestPrice("ethereum");
+
+    // Consider price trends in optimization strategy
+    const bestProtocol = protocols.reduce((best, current) => {
+      const currentScore = current.apy * (ethPrice ? ethPrice.price / 3000 : 1); // Price-weighted APY
+      const bestScore = best.apy * (ethPrice ? ethPrice.price / 3000 : 1);
+      return currentScore > bestScore ? current : best;
+    });
 
     if (bestProtocol.name !== vault.protocol) {
       const transaction = await storage.createTransaction({
@@ -55,6 +60,24 @@ export async function registerRoutes(app: Express) {
     const protocol = await storage.toggleProtocol(Number(req.params.id));
     res.json(protocol);
   });
+
+  // Price routes
+  app.get("/api/prices/:asset", async (req, res) => {
+    const prices = await storage.getPrices(req.params.asset);
+    res.json(prices);
+  });
+
+  // Simulate price updates
+  setInterval(async () => {
+    const lastPrice = await storage.getLatestPrice("ethereum");
+    const basePrice = lastPrice?.price || 3000;
+    const newPrice = basePrice * (1 + (Math.random() - 0.5) * 0.02); // ±1% change
+    await storage.createPrice({
+      asset: "ethereum",
+      price: newPrice,
+      timestamp: new Date(),
+    });
+  }, 10000); // Update every 10 seconds
 
   // Vault routes
   app.get("/api/vaults", async (_req, res) => {

@@ -1,4 +1,4 @@
-import { type Protocol, type InsertProtocol, type Vault, type InsertVault, type Transaction, type InsertTransaction } from "@shared/schema";
+import { type Protocol, type InsertProtocol, type Vault, type InsertVault, type Transaction, type InsertTransaction, type Price, type InsertPrice } from "@shared/schema";
 
 export interface IStorage {
   // Protocol methods
@@ -8,27 +8,37 @@ export interface IStorage {
   updateProtocol(id: number, protocol: Partial<InsertProtocol>): Promise<Protocol>;
   toggleProtocol(id: number): Promise<Protocol>;
 
-  // Existing methods
+  // Vault methods
   getVaults(): Promise<Vault[]>;
   getVault(id: number): Promise<Vault | undefined>;
   createVault(vault: InsertVault): Promise<Vault>;
   updateVault(id: number, vault: Partial<InsertVault>): Promise<Vault>;
+
+  // Transaction methods
   getTransactions(vaultId: number): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+
+  // Price methods
+  getPrices(asset: string): Promise<Price[]>;
+  getLatestPrice(asset: string): Promise<Price | undefined>;
+  createPrice(price: InsertPrice): Promise<Price>;
 }
 
 export class MemStorage implements IStorage {
   private protocols: Map<number, Protocol>;
   private vaults: Map<number, Vault>;
   private transactions: Map<number, Transaction>;
+  private prices: Map<number, Price>;
   private protocolId: number = 1;
   private vaultId: number = 1;
   private transactionId: number = 1;
+  private priceId: number = 1;
 
   constructor() {
     this.protocols = new Map();
     this.vaults = new Map();
     this.transactions = new Map();
+    this.prices = new Map();
 
     // Add mock protocol data
     this.createProtocol({ name: "AAVE", apy: 4.5, tvl: 10000000, active: true });
@@ -40,6 +50,9 @@ export class MemStorage implements IStorage {
     this.createVault({ name: "USDC Vault", balance: 10000, autoMode: true, protocol: "AAVE", apy: 4.5 });
     this.createVault({ name: "DAI Vault", balance: 5000, autoMode: false, protocol: "Compound", apy: 3.8 });
     this.createVault({ name: "USDT Vault", balance: 7500, autoMode: true, protocol: "Morpho", apy: 4.2 });
+
+    // Add mock price data
+    this.createPrice({ asset: "ethereum", price: 3150.75, timestamp: new Date() });
   }
 
   // Protocol methods
@@ -74,7 +87,7 @@ export class MemStorage implements IStorage {
     return updatedProtocol;
   }
 
-  // Existing methods remain unchanged
+  // Vault methods
   async getVaults(): Promise<Vault[]> {
     return Array.from(this.vaults.values());
   }
@@ -98,6 +111,7 @@ export class MemStorage implements IStorage {
     return updatedVault;
   }
 
+  // Transaction methods
   async getTransactions(vaultId: number): Promise<Transaction[]> {
     return Array.from(this.transactions.values())
       .filter(t => t.vaultId === vaultId)
@@ -113,6 +127,30 @@ export class MemStorage implements IStorage {
     };
     this.transactions.set(id, transaction);
     return transaction;
+  }
+
+  // Price methods
+  async getPrices(asset: string): Promise<Price[]> {
+    return Array.from(this.prices.values())
+      .filter(p => p.asset === asset)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+
+  async getLatestPrice(asset: string): Promise<Price | undefined> {
+    return Array.from(this.prices.values())
+      .filter(p => p.asset === asset)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+  }
+
+  async createPrice(insertPrice: InsertPrice): Promise<Price> {
+    const id = this.priceId++;
+    const price: Price = {
+      ...insertPrice,
+      id,
+      timestamp: new Date(),
+    };
+    this.prices.set(id, price);
+    return price;
   }
 }
 

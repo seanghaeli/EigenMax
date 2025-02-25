@@ -27,6 +27,13 @@ export const transactions = pgTable("transactions", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
+export const prices = pgTable("prices", {
+  id: serial("id").primaryKey(),
+  asset: text("asset").notNull(),
+  price: real("price").notNull(),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
 export const insertProtocolSchema = createInsertSchema(protocols, {
   id: z.number(),
   name: z.string(),
@@ -52,9 +59,18 @@ export const insertTransactionSchema = createInsertSchema(transactions, {
   timestamp: z.date(),
 }).omit({ id: true });
 
+export const insertPriceSchema = createInsertSchema(prices, {
+  id: z.number(),
+  asset: z.string(),
+  price: z.number(),
+  timestamp: z.date(),
+}).omit({ id: true });
+
 export type Protocol = typeof protocols.$inferSelect;
 export type InsertProtocol = z.infer<typeof insertProtocolSchema>;
 export type Vault = typeof vaults.$inferSelect;
 export type InsertVault = z.infer<typeof insertVaultSchema>;
 export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
+export type Price = typeof prices.$inferSelect;
+export type InsertPrice = z.infer<typeof insertPriceSchema>;
