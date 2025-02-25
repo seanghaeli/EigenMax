@@ -7,7 +7,7 @@ import type { Price } from "@shared/schema";
 export default function PriceFeedPanel() {
   const { data: prices = [] } = useQuery<Price[]>({
     queryKey: ["/api/prices/ethereum"],
-    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchInterval: 60000, // Refetch every minute
   });
 
   const latestPrice = prices[0];
