@@ -116,6 +116,16 @@ export class MemStorage implements IStorage {
       baseGasLimit: 52000,
       address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9"
     });
+    this.createToken({
+      symbol: "cbETH",
+      name: "Coinbase Wrapped ETH",
+      type: "lsd",
+      decimals: 18,
+      active: true,
+      baseGasLimit: 68000,
+      address: "0x4200000000000000000000000000000000000000" // Placeholder address
+    });
+
 
     // Add mock protocol data with supported tokens
     this.createProtocol({
@@ -158,6 +168,51 @@ export class MemStorage implements IStorage {
       lastUpdate: new Date()
     });
 
+    // Add EigenLayer AVS protocols
+    this.createProtocol({
+      name: "EigenDA",
+      type: "avs",
+      apy: 12.5,
+      tvl: 25000000,
+      active: true,
+      supportedTokens: ["wstETH", "rETH"],
+      gasOverhead: 300000,
+      healthScore: 92,
+      tvlChange24h: 3.2,
+      tvlChange7d: 8.5,
+      lastUpdate: new Date(),
+      slashingRisk: 0.02,
+      nodeCount: 150,
+      avgUptimePercent: 99.95,
+      restakingEnabled: true,
+      minStakeAmount: 32,
+      avgRewardRate: 0.15,
+      securityScore: 95,
+      riskCategory: "low"
+    });
+
+    this.createProtocol({
+      name: "EigenDMO",
+      type: "avs",
+      apy: 18.2,
+      tvl: 15000000,
+      active: true,
+      supportedTokens: ["wstETH", "rETH", "cbETH"],
+      gasOverhead: 280000,
+      healthScore: 88,
+      tvlChange24h: 4.5,
+      tvlChange7d: 12.3,
+      lastUpdate: new Date(),
+      slashingRisk: 0.05,
+      nodeCount: 80,
+      avgUptimePercent: 99.8,
+      restakingEnabled: true,
+      minStakeAmount: 16,
+      avgRewardRate: 0.22,
+      securityScore: 85,
+      riskCategory: "medium"
+    });
+
     // Add mock vault data with diverse portfolio
     this.createVault({
       name: "USDC Vault",
@@ -190,6 +245,14 @@ export class MemStorage implements IStorage {
       protocol: "AAVE",
       token: "UNI",
       apy: 2.5
+    });
+    this.createVault({
+      name: "Restaked ETH Vault",
+      balance: 64,
+      autoMode: true,
+      protocol: "EigenDA",
+      token: "wstETH",
+      apy: 12.5
     });
   }
 
