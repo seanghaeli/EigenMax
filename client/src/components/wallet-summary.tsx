@@ -5,7 +5,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Wallet } from "lucide-react";
+import { Wallet, Layers } from "lucide-react";
 import type { Protocol, Vault } from "@shared/schema";
 
 interface TokenPosition {
@@ -107,6 +107,69 @@ export default function WalletSummary() {
     },
   });
 
+  const optimizeRestake = useMutation({
+    mutationFn: async () => {
+      const results = await Promise.all(
+        vaults
+          .filter(vault => ["wstETH", "rETH", "cbETH"].includes(vault.token))
+          .map(vault =>
+            apiRequest("POST", `/api/vaults/${vault.id}/optimize-restake`)
+              .then(res => res.json())
+          )
+      );
+      return results;
+    },
+    onSuccess: (results) => {
+      const changes = results.filter(result => result.vault);
+      if (changes.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ["/api/vaults"] });
+        vaults.forEach(vault => {
+          queryClient.invalidateQueries({ queryKey: [`/api/vaults/${vault.id}/transactions`] });
+        });
+
+        toast({
+          title: "Restaking Optimized",
+          description: (
+            <div className="space-y-2">
+              <p>{changes.length} LST positions rebalanced across AVS protocols</p>
+              {changes.map((change, index) => (
+                <div key={index} className="text-sm border-l-2 border-primary pl-2 mt-1">
+                  <p>
+                    <span className="font-medium">{change.vault.token}</span>: Restaked in{" "}
+                    <span className="text-muted-foreground">{change.vault.protocol}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    New APY: {change.vault.apy}%
+                    <br />
+                    Gas Cost: ${change.analysis.gasCost.toFixed(2)}
+                    <br />
+                    Annual Benefit: ${change.analysis.netBenefit.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Security Score: {change.analysis.protocolDetails.securityScore}/100
+                    <br />
+                    Risk Level: {change.analysis.protocolDetails.riskCategory}
+                    <br />
+                    Slashing Risk: {(change.analysis.protocolDetails.slashingRisk * 100).toFixed(2)}%
+                    <br />
+                    Nodes: {change.analysis.protocolDetails.nodeCount}
+                    <br />
+                    Uptime: {change.analysis.protocolDetails.avgUptimePercent}%
+                  </p>
+                </div>
+              ))}
+            </div>
+          ),
+        });
+      } else {
+        toast({
+          title: "No Restaking Changes Needed",
+          description: "Your LST positions are optimally allocated across AVS protocols.",
+        });
+      }
+    },
+  });
+
   const connectWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputAddress.startsWith('0x') || inputAddress.length !== 42) {
@@ -177,6 +240,11 @@ export default function WalletSummary() {
     );
   }
 
+  // Check if there are any LST tokens in the portfolio
+  const hasLSTTokens = positions.some(pos => 
+    ["wstETH", "rETH", "cbETH"].includes(pos.token)
+  );
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -191,6 +259,16 @@ export default function WalletSummary() {
           >
             Re-evaluate All
           </Button>
+          {hasLSTTokens && (
+            <Button
+              onClick={() => optimizeRestake.mutate()}
+              disabled={optimizeRestake.isPending}
+              variant="secondary"
+            >
+              <Layers className="w-4 h-4 mr-2" />
+              Optimize Re-stake
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>

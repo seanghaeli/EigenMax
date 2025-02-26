@@ -321,6 +321,135 @@ export async function registerRoutes(app: Express) {
     res.json(result || { message: "No profitable rebalancing opportunity found" });
   });
 
+  app.post("/api/vaults/:id/optimize-restake", async (req, res) => {
+    const vault = await storage.getVault(Number(req.params.id));
+    if (!vault) return res.status(404).json({ message: "Vault not found" });
+
+    const protocols = await storage.getActiveProtocols();
+    const ethPrice = await storage.getLatestPrice("ethereum");
+    const priceHistory = await storage.getPrices("ethereum");
+    const token = await storage.getToken(vault.token);
+
+    if (!token) {
+      throw new Error("Token not found");
+    }
+
+    // Filter for AVS protocols that support the token
+    const compatibleAVS = protocols.filter(p =>
+      p.type === 'avs' &&
+      p.supportedTokens.includes(token.symbol)
+    );
+
+    if (compatibleAVS.length === 0) {
+      return res.json({ message: "No compatible AVS protocols found" });
+    }
+
+    // Calculate price trend
+    const priceChange =
+      priceHistory.length > 1
+        ? ((priceHistory[0].price - priceHistory[priceHistory.length - 1].price) /
+            priceHistory[priceHistory.length - 1].price) *
+          100
+        : 0;
+
+    // Get current gas price (simplified)
+    const currentGasPrice = 30; // Gwei
+
+    // Enhanced scoring that considers:
+    // 1. Base APY
+    // 2. Node count and distribution
+    // 3. Slashing risk
+    // 4. Security score
+    // 5. Historical uptime
+    const bestProtocol = compatibleAVS.reduce((best, current) => {
+      // Base score from APY
+      let currentScore = current.apy;
+
+      // Node distribution score (more nodes = better)
+      const nodeScore = Math.min(current.nodeCount / 1000, 1); // Cap at 1000 nodes
+
+      // Slashing risk penalty (inverse relationship)
+      const slashingPenalty = 1 - (current.slashingRisk || 0);
+
+      // Security score bonus
+      const securityBonus = ((current.securityScore || 50) / 100) * 1.5;
+
+      // Uptime score
+      const uptimeScore = ((current.avgUptimePercent || 99) / 100);
+
+      // Combine all factors
+      currentScore *= (nodeScore * slashingPenalty * securityBonus * uptimeScore);
+
+      // Calculate the same for the current best
+      let bestScore = best.apy;
+      const bestNodeScore = Math.min(best.nodeCount / 1000, 1);
+      const bestSlashingPenalty = 1 - (best.slashingRisk || 0);
+      const bestSecurityBonus = ((best.securityScore || 50) / 100) * 1.5;
+      const bestUptimeScore = ((best.avgUptimePercent || 99) / 100);
+      bestScore *= (bestNodeScore * bestSlashingPenalty * bestSecurityBonus * bestUptimeScore);
+
+      return currentScore > bestScore ? current : best;
+    });
+
+    if (bestProtocol.name !== vault.protocol) {
+      // Calculate total gas cost
+      const totalGasLimit = token.baseGasLimit + bestProtocol.gasOverhead;
+      const gasCostInGwei = totalGasLimit * currentGasPrice;
+      const gasCostInEth = gasCostInGwei * 1e-9;
+      const gasCostInUsd = gasCostInEth * (ethPrice?.price || 3000);
+
+      // Calculate potential benefits
+      const currentYearlyYield = vault.balance * (vault.apy / 100);
+      const newYearlyYield = vault.balance * (bestProtocol.apy / 100);
+      const yearlyBenefit = newYearlyYield - currentYearlyYield;
+
+      // Higher threshold for restaking due to potentially higher risks
+      const minBenefitThreshold = gasCostInUsd * 3;
+
+      if (yearlyBenefit > minBenefitThreshold) {
+        const transaction = await storage.createTransaction({
+          vaultId: vault.id,
+          type: "rebalance",
+          amount: vault.balance,
+          timestamp: new Date(),
+          gasCost: gasCostInUsd,
+        });
+
+        const updatedVault = await storage.updateVault(vault.id, {
+          protocol: bestProtocol.name,
+          apy: bestProtocol.apy,
+        });
+
+        return res.json({
+          vault: updatedVault,
+          transaction,
+          analysis: {
+            priceChange,
+            currentYield: currentYearlyYield,
+            projectedYield: newYearlyYield,
+            gasCost: gasCostInUsd,
+            netBenefit: yearlyBenefit - gasCostInUsd,
+            tokenType: token.type,
+            gasDetails: {
+              gasLimit: totalGasLimit,
+              gasPrice: currentGasPrice,
+              costInEth: gasCostInEth,
+            },
+            protocolDetails: {
+              slashingRisk: bestProtocol.slashingRisk,
+              securityScore: bestProtocol.securityScore,
+              avgUptimePercent: bestProtocol.avgUptimePercent,
+              nodeCount: bestProtocol.nodeCount,
+              riskCategory: bestProtocol.riskCategory
+            }
+          }
+        });
+      }
+    }
+
+    return res.json({ message: "No profitable restaking opportunity found" });
+  });
+
   app.get("/api/vaults/:id/transactions", async (req, res) => {
     const transactions = await storage.getTransactions(Number(req.params.id));
     res.json(transactions);
