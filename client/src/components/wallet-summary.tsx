@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Wallet } from "lucide-react";
 import type { Protocol, Vault } from "@shared/schema";
 
@@ -37,6 +37,34 @@ export default function WalletSummary() {
 
   const totalBalance = positions.reduce((sum, pos) => sum + pos.balance, 0);
   const totalProjectedYield = positions.reduce((sum, pos) => sum + pos.projectedAnnualYield, 0);
+
+  useEffect(() => {
+    // Check if already connected
+    if (window.ethereum) {
+      window.ethereum.request({ method: 'eth_accounts' })
+        .then((accounts: string[]) => {
+          if (accounts.length > 0) {
+            setAddress(accounts[0]);
+          }
+        })
+        .catch(console.error);
+
+      // Listen for account changes
+      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+        if (accounts.length > 0) {
+          setAddress(accounts[0]);
+        } else {
+          setAddress(null);
+        }
+      });
+    }
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', () => {});
+      }
+    };
+  }, []);
 
   const evaluateAll = useMutation({
     mutationFn: async () => {
@@ -80,28 +108,34 @@ export default function WalletSummary() {
   });
 
   async function connectWallet() {
-    try {
-      if (!window.ethereum) {
-        toast({
-          title: "MetaMask Required",
-          description: "Please install MetaMask to connect your wallet.",
-        });
-        return;
-      }
-
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts'
-      });
-      setAddress(accounts[0]);
-
+    if (!window.ethereum) {
       toast({
-        title: "Wallet Connected",
-        description: "Successfully connected to your wallet.",
+        title: "MetaMask Required",
+        description: "Please install MetaMask to connect your wallet.",
       });
-    } catch (error) {
+      return;
+    }
+
+    try {
+      // Request account access
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts'  // This triggers the MetaMask popup
+      }) as string[];
+
+      if (accounts.length > 0) {
+        setAddress(accounts[0]);
+        toast({
+          title: "Wallet Connected",
+          description: "Successfully connected to your wallet.",
+        });
+      } else {
+        throw new Error("No accounts found");
+      }
+    } catch (error: any) {
+      console.error('Wallet connection error:', error);
       toast({
         title: "Connection Failed",
-        description: "Failed to connect to your wallet. Please try again.",
+        description: error.message || "Failed to connect to your wallet. Please try again.",
       });
     }
   }
