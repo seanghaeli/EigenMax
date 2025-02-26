@@ -9,6 +9,10 @@ import {
   type InsertTransaction,
   type Price,
   type InsertPrice,
+  type AVSPosition,
+  type InsertAVSPosition,
+  type AVSMetrics,
+  type InsertAVSMetrics,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -40,6 +44,16 @@ export interface IStorage {
   getPrices(asset: string): Promise<Price[]>;
   getLatestPrice(asset: string): Promise<Price | undefined>;
   createPrice(price: InsertPrice): Promise<Price>;
+
+  // AVS Position methods
+  getAVSPositions(walletAddress: string): Promise<AVSPosition[]>;
+  createAVSPosition(position: InsertAVSPosition): Promise<AVSPosition>;
+  updateAVSPosition(id: number, position: Partial<InsertAVSPosition>): Promise<AVSPosition>;
+
+  // AVS Metrics methods
+  getAVSMetrics(avsId: string): Promise<AVSMetrics[]>;
+  createAVSMetrics(metrics: InsertAVSMetrics): Promise<AVSMetrics>;
+  getLatestAVSMetrics(avsId: string): Promise<AVSMetrics | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -48,11 +62,15 @@ export class MemStorage implements IStorage {
   private vaults: Map<number, Vault>;
   private transactions: Map<number, Transaction>;
   private prices: Map<number, Price>;
+  private avsPositions: Map<number, AVSPosition>;
+  private avsMetrics: Map<number, AVSMetrics>;
   private tokenId: number = 1;
   private protocolId: number = 1;
   private vaultId: number = 1;
   private transactionId: number = 1;
   private priceId: number = 1;
+  private avsPositionId: number = 1;
+  private avsMetricsId: number = 1;
 
   constructor() {
     this.tokens = new Map();
@@ -60,6 +78,8 @@ export class MemStorage implements IStorage {
     this.vaults = new Map();
     this.transactions = new Map();
     this.prices = new Map();
+    this.avsPositions = new Map();
+    this.avsMetrics = new Map();
 
     // Add mock token data
     this.createToken({
@@ -317,6 +337,47 @@ export class MemStorage implements IStorage {
     };
     this.prices.set(id, price);
     return price;
+  }
+
+  // AVS Position methods
+  async getAVSPositions(walletAddress: string): Promise<AVSPosition[]> {
+    return Array.from(this.avsPositions.values())
+      .filter(p => p.walletAddress === walletAddress);
+  }
+
+  async createAVSPosition(insertPosition: InsertAVSPosition): Promise<AVSPosition> {
+    const id = this.avsPositionId++;
+    const position: AVSPosition = { ...insertPosition, id };
+    this.avsPositions.set(id, position);
+    return position;
+  }
+
+  async updateAVSPosition(id: number, updates: Partial<InsertAVSPosition>): Promise<AVSPosition> {
+    const position = this.avsPositions.get(id);
+    if (!position) throw new Error("AVS Position not found");
+    const updatedPosition = { ...position, ...updates };
+    this.avsPositions.set(id, updatedPosition);
+    return updatedPosition;
+  }
+
+  // AVS Metrics methods
+  async getAVSMetrics(avsId: string): Promise<AVSMetrics[]> {
+    return Array.from(this.avsMetrics.values())
+      .filter(m => m.avsId === avsId)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+
+  async createAVSMetrics(insertMetrics: InsertAVSMetrics): Promise<AVSMetrics> {
+    const id = this.avsMetricsId++;
+    const metrics: AVSMetrics = { ...insertMetrics, id, timestamp: new Date() };
+    this.avsMetrics.set(id, metrics);
+    return metrics;
+  }
+
+  async getLatestAVSMetrics(avsId: string): Promise<AVSMetrics | undefined> {
+    return Array.from(this.avsMetrics.values())
+      .filter(m => m.avsId === avsId)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
   }
 }
 
