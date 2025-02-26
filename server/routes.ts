@@ -8,6 +8,9 @@ import {
   insertPriceSchema,
   type Protocol,
 } from "@shared/schema";
+import { defiLlama } from './defi-llama-service';
+import { protocolService } from './protocol-service';
+import { WalletService } from './wallet-service';
 
 // Function to fetch ETH price from CoinGecko
 async function fetchEthPrice() {
