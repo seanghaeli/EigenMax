@@ -6,6 +6,7 @@ import {
   insertTransactionSchema,
   insertProtocolSchema,
   insertPriceSchema,
+  type Protocol,
 } from "@shared/schema";
 
 // Function to fetch ETH price from CoinGecko
@@ -50,6 +51,20 @@ class YieldOptimizer {
     const protocols = await storage.getActiveProtocols();
     const ethPrice = await storage.getLatestPrice("ethereum");
     const priceHistory = await storage.getPrices("ethereum");
+    const token = await storage.getToken(vault.token);
+
+    if (!token) {
+      throw new Error("Token not found");
+    }
+
+    // Filter protocols that support the token
+    const compatibleProtocols = protocols.filter(p => 
+      p.supportedTokens.includes(token.symbol)
+    );
+
+    if (compatibleProtocols.length === 0) {
+      return null; // No compatible protocols
+    }
 
     // Calculate price trend
     const priceChange =
@@ -59,11 +74,15 @@ class YieldOptimizer {
           priceHistory[priceHistory.length - 1].price
         : 0;
 
+    // Get current gas price (simplified, in production would use on-chain data)
+    const currentGasPrice = 30; // Gwei
+
     // Enhanced scoring that considers:
     // 1. Base APY
     // 2. Current ETH price relative to baseline (3000)
     // 3. Recent price trend
-    const bestProtocol = protocols.reduce((best, current) => {
+    // 4. Gas costs
+    const bestProtocol = compatibleProtocols.reduce((best, current) => {
       const priceMultiplier = (ethPrice?.price || 3000) / 3000;
       const trendMultiplier = 1 + priceChange * 0.5; // Price trend has 50% weight
 
@@ -74,19 +93,44 @@ class YieldOptimizer {
     });
 
     if (bestProtocol.name !== vault.protocol) {
-      // Include transaction cost consideration (0.1% fee assumption)
-      const transactionCost = vault.balance * 0.001;
+      // Calculate total gas cost
+      const totalGasLimit = token.baseGasLimit + bestProtocol.gasOverhead;
+      const gasCostInGwei = totalGasLimit * currentGasPrice;
+      const gasCostInEth = gasCostInGwei * 1e-9;
+      const gasCostInUsd = gasCostInEth * (ethPrice?.price || 3000);
+
+      // Calculate potential benefits
       const currentYearlyYield = vault.balance * (vault.apy / 100);
       const newYearlyYield = vault.balance * (bestProtocol.apy / 100);
       const yearlyBenefit = newYearlyYield - currentYearlyYield;
 
-      // Only rebalance if benefit exceeds transaction costs
-      if (yearlyBenefit > transactionCost) {
+      // Token-specific analysis
+      let minBenefitThreshold = gasCostInUsd * 2; // Default 2x gas cost
+
+      // Adjust threshold based on token type
+      switch (token.type) {
+        case "lsd":
+          // LSD tokens often have higher yields, so we can be more aggressive
+          minBenefitThreshold = gasCostInUsd * 1.5;
+          break;
+        case "governance":
+          // Be more conservative with governance tokens
+          minBenefitThreshold = gasCostInUsd * 3;
+          break;
+        case "stablecoin":
+          // Standard threshold for stablecoins
+          minBenefitThreshold = gasCostInUsd * 2;
+          break;
+      }
+
+      // Only rebalance if benefit significantly exceeds gas costs
+      if (yearlyBenefit > minBenefitThreshold) {
         const transaction = await storage.createTransaction({
           vaultId: vault.id,
           type: "rebalance",
           amount: vault.balance,
           timestamp: new Date(),
+          gasCost: gasCostInUsd,
         });
 
         const updatedVault = await storage.updateVault(vault.id, {
@@ -101,9 +145,15 @@ class YieldOptimizer {
             priceChange: priceChange * 100,
             currentYield: currentYearlyYield,
             projectedYield: newYearlyYield,
-            transactionCost,
-            netBenefit: yearlyBenefit - transactionCost,
-          },
+            gasCost: gasCostInUsd,
+            netBenefit: yearlyBenefit - gasCostInUsd,
+            tokenType: token.type,
+            gasDetails: {
+              gasLimit: totalGasLimit,
+              gasPrice: currentGasPrice,
+              costInEth: gasCostInEth,
+            }
+          }
         };
       }
     }
@@ -123,6 +173,17 @@ export async function registerRoutes(app: Express) {
     });
   }
 
+  // Token routes
+  app.get("/api/tokens", async (_req, res) => {
+    const tokens = await storage.getTokens();
+    res.json(tokens);
+  });
+
+  app.get("/api/tokens/active", async (_req, res) => {
+    const tokens = await storage.getActiveTokens();
+    res.json(tokens);
+  });
+
   // Protocol routes
   app.get("/api/protocols", async (_req, res) => {
     const protocols = await storage.getProtocols();
@@ -139,10 +200,7 @@ export async function registerRoutes(app: Express) {
   });
 
   app.patch("/api/protocols/:id", async (req, res) => {
-    const protocol = await storage.updateProtocol(
-      Number(req.params.id),
-      req.body,
-    );
+    const protocol = await storage.updateProtocol(Number(req.params.id), req.body);
     res.json(protocol);
   });
 
@@ -201,7 +259,7 @@ export async function registerRoutes(app: Express) {
 
     const optimizer = new YieldOptimizer();
     const result = await optimizer.checkAndOptimize(vault);
-    res.json(result || vault);
+    res.json(result || { message: "No profitable rebalancing opportunity found" });
   });
 
   app.get("/api/vaults/:id/transactions", async (req, res) => {

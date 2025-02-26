@@ -2,12 +2,27 @@ import { pgTable, text, serial, integer, timestamp, real, boolean } from "drizzl
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const tokens = pgTable("tokens", {
+  id: serial("id").primaryKey(),
+  symbol: text("symbol").notNull(),
+  name: text("name").notNull(),
+  type: text("type", { 
+    enum: ["lsd", "governance", "stablecoin", "other"] 
+  }).notNull(),
+  decimals: integer("decimals").notNull().default(18),
+  active: boolean("active").notNull().default(true),
+  baseGasLimit: integer("base_gas_limit").notNull(), 
+  address: text("address").notNull(),
+});
+
 export const protocols = pgTable("protocols", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   apy: real("apy").notNull().default(0),
   tvl: real("tvl").notNull().default(0),
   active: boolean("active").notNull().default(true),
+  supportedTokens: text("supported_tokens").array().notNull(), 
+  gasOverhead: integer("gas_overhead").notNull(), 
 });
 
 export const vaults = pgTable("vaults", {
@@ -16,6 +31,7 @@ export const vaults = pgTable("vaults", {
   balance: real("balance").notNull().default(0),
   autoMode: boolean("auto_mode").notNull().default(false),
   protocol: text("protocol").notNull(),
+  token: text("token").notNull(), 
   apy: real("apy").notNull().default(0),
 });
 
@@ -25,6 +41,8 @@ export const transactions = pgTable("transactions", {
   type: text("type", { enum: ["deposit", "withdraw", "rebalance"] }).notNull(),
   amount: real("amount").notNull(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
+  gasCost: real("gas_cost").notNull().default(0), 
+  txHash: text("tx_hash"), 
 });
 
 export const prices = pgTable("prices", {
@@ -34,12 +52,25 @@ export const prices = pgTable("prices", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
+export const insertTokenSchema = createInsertSchema(tokens, {
+  id: z.number(),
+  symbol: z.string(),
+  name: z.string(),
+  type: z.enum(["lsd", "governance", "stablecoin", "other"]),
+  decimals: z.number(),
+  active: z.boolean(),
+  baseGasLimit: z.number(),
+  address: z.string(),
+}).omit({ id: true });
+
 export const insertProtocolSchema = createInsertSchema(protocols, {
   id: z.number(),
   name: z.string(),
   apy: z.number(),
   tvl: z.number(),
   active: z.boolean(),
+  supportedTokens: z.array(z.string()),
+  gasOverhead: z.number(),
 }).omit({ id: true });
 
 export const insertVaultSchema = createInsertSchema(vaults, {
@@ -48,6 +79,7 @@ export const insertVaultSchema = createInsertSchema(vaults, {
   balance: z.number(),
   autoMode: z.boolean(),
   protocol: z.string(),
+  token: z.string(),
   apy: z.number(),
 }).omit({ id: true });
 
@@ -57,6 +89,8 @@ export const insertTransactionSchema = createInsertSchema(transactions, {
   type: z.enum(["deposit", "withdraw", "rebalance"]),
   amount: z.number(),
   timestamp: z.date(),
+  gasCost: z.number(),
+  txHash: z.string().optional(),
 }).omit({ id: true });
 
 export const insertPriceSchema = createInsertSchema(prices, {
@@ -66,6 +100,8 @@ export const insertPriceSchema = createInsertSchema(prices, {
   timestamp: z.date(),
 }).omit({ id: true });
 
+export type Token = typeof tokens.$inferSelect;
+export type InsertToken = z.infer<typeof insertTokenSchema>;
 export type Protocol = typeof protocols.$inferSelect;
 export type InsertProtocol = z.infer<typeof insertProtocolSchema>;
 export type Vault = typeof vaults.$inferSelect;

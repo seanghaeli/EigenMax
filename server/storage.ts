@@ -1,4 +1,6 @@
 import {
+  type Token,
+  type InsertToken,
   type Protocol,
   type InsertProtocol,
   type Vault,
@@ -10,14 +12,18 @@ import {
 } from "@shared/schema";
 
 export interface IStorage {
+  // Token methods
+  getTokens(): Promise<Token[]>;
+  getActiveTokens(): Promise<Token[]>;
+  getToken(symbol: string): Promise<Token | undefined>;
+  createToken(token: InsertToken): Promise<Token>;
+  updateToken(id: number, token: Partial<InsertToken>): Promise<Token>;
+
   // Protocol methods
   getProtocols(): Promise<Protocol[]>;
   getActiveProtocols(): Promise<Protocol[]>;
   createProtocol(protocol: InsertProtocol): Promise<Protocol>;
-  updateProtocol(
-    id: number,
-    protocol: Partial<InsertProtocol>,
-  ): Promise<Protocol>;
+  updateProtocol(id: number, protocol: Partial<InsertProtocol>): Promise<Protocol>;
   toggleProtocol(id: number): Promise<Protocol>;
 
   // Vault methods
@@ -37,45 +43,77 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  private tokens: Map<number, Token>;
   private protocols: Map<number, Protocol>;
   private vaults: Map<number, Vault>;
   private transactions: Map<number, Transaction>;
   private prices: Map<number, Price>;
+  private tokenId: number = 1;
   private protocolId: number = 1;
   private vaultId: number = 1;
   private transactionId: number = 1;
   private priceId: number = 1;
 
   constructor() {
+    this.tokens = new Map();
     this.protocols = new Map();
     this.vaults = new Map();
     this.transactions = new Map();
     this.prices = new Map();
 
-    // Add mock protocol data
+    // Add mock token data
+    this.createToken({
+      symbol: "wstETH",
+      name: "Wrapped Staked Ethereum",
+      type: "lsd",
+      decimals: 18,
+      active: true,
+      baseGasLimit: 65000,
+      address: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+    });
+    this.createToken({
+      symbol: "rETH",
+      name: "Rocket Pool ETH",
+      type: "lsd",
+      decimals: 18,
+      active: true,
+      baseGasLimit: 70000,
+      address: "0xae78736Cd615f374D3085123A210448E74Fc6393"
+    });
+    this.createToken({
+      symbol: "USDC",
+      name: "USD Coin",
+      type: "stablecoin",
+      decimals: 6,
+      active: true,
+      baseGasLimit: 45000,
+      address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    });
+
+    // Add mock protocol data with supported tokens
     this.createProtocol({
       name: "AAVE",
       apy: 4.5,
       tvl: 10000000,
       active: true,
+      supportedTokens: ["wstETH", "rETH", "USDC"],
+      gasOverhead: 220000
     });
     this.createProtocol({
       name: "Compound",
       apy: 3.8,
       tvl: 8500000,
       active: true,
+      supportedTokens: ["USDC"],
+      gasOverhead: 180000
     });
     this.createProtocol({
       name: "Morpho",
       apy: 4.2,
       tvl: 7000000,
       active: true,
-    });
-    this.createProtocol({
-      name: "Moonwell",
-      apy: 3.5,
-      tvl: 5000000,
-      active: true,
+      supportedTokens: ["wstETH", "USDC"],
+      gasOverhead: 250000
     });
 
     // Add mock vault data
@@ -84,25 +122,45 @@ export class MemStorage implements IStorage {
       balance: 10000,
       autoMode: true,
       protocol: "AAVE",
-      apy: 4.5,
+      token: "USDC",
+      apy: 4.5
     });
     this.createVault({
-      name: "DAI Vault",
-      balance: 5000,
-      autoMode: false,
-      protocol: "Compound",
-      apy: 3.8,
-    });
-    this.createVault({
-      name: "USDT Vault",
-      balance: 7500,
+      name: "wstETH Vault",
+      balance: 5,
       autoMode: true,
       protocol: "Morpho",
-      apy: 4.2,
+      token: "wstETH",
+      apy: 4.2
     });
+  }
 
-    // Add mock price data
-    // this.createPrice({ asset: "ethereum", price: 2500, timestamp: new Date() });
+  // Token methods
+  async getTokens(): Promise<Token[]> {
+    return Array.from(this.tokens.values());
+  }
+
+  async getActiveTokens(): Promise<Token[]> {
+    return Array.from(this.tokens.values()).filter(t => t.active);
+  }
+
+  async getToken(symbol: string): Promise<Token | undefined> {
+    return Array.from(this.tokens.values()).find(t => t.symbol === symbol);
+  }
+
+  async createToken(insertToken: InsertToken): Promise<Token> {
+    const id = this.tokenId++;
+    const token: Token = { ...insertToken, id };
+    this.tokens.set(id, token);
+    return token;
+  }
+
+  async updateToken(id: number, updates: Partial<InsertToken>): Promise<Token> {
+    const token = this.tokens.get(id);
+    if (!token) throw new Error("Token not found");
+    const updatedToken = { ...token, ...updates };
+    this.tokens.set(id, updatedToken);
+    return updatedToken;
   }
 
   // Protocol methods
@@ -111,7 +169,7 @@ export class MemStorage implements IStorage {
   }
 
   async getActiveProtocols(): Promise<Protocol[]> {
-    return Array.from(this.protocols.values()).filter((p) => p.active);
+    return Array.from(this.protocols.values()).filter(p => p.active);
   }
 
   async createProtocol(insertProtocol: InsertProtocol): Promise<Protocol> {
@@ -121,10 +179,7 @@ export class MemStorage implements IStorage {
     return protocol;
   }
 
-  async updateProtocol(
-    id: number,
-    updates: Partial<InsertProtocol>,
-  ): Promise<Protocol> {
+  async updateProtocol(id: number, updates: Partial<InsertProtocol>): Promise<Protocol> {
     const protocol = this.protocols.get(id);
     if (!protocol) throw new Error("Protocol not found");
     const updatedProtocol = { ...protocol, ...updates };
@@ -167,13 +222,11 @@ export class MemStorage implements IStorage {
   // Transaction methods
   async getTransactions(vaultId: number): Promise<Transaction[]> {
     return Array.from(this.transactions.values())
-      .filter((t) => t.vaultId === vaultId)
+      .filter(t => t.vaultId === vaultId)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
-  async createTransaction(
-    insertTransaction: InsertTransaction,
-  ): Promise<Transaction> {
+  async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
     const id = this.transactionId++;
     const transaction: Transaction = {
       ...insertTransaction,
@@ -187,13 +240,13 @@ export class MemStorage implements IStorage {
   // Price methods
   async getPrices(asset: string): Promise<Price[]> {
     return Array.from(this.prices.values())
-      .filter((p) => p.asset === asset)
+      .filter(p => p.asset === asset)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
   async getLatestPrice(asset: string): Promise<Price | undefined> {
     return Array.from(this.prices.values())
-      .filter((p) => p.asset === asset)
+      .filter(p => p.asset === asset)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
   }
 
