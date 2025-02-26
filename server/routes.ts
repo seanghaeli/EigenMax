@@ -66,7 +66,7 @@ class YieldOptimizer {
     }
 
     // Filter protocols that support the token
-    const compatibleProtocols = protocols.filter(p => 
+    const compatibleProtocols = protocols.filter(p =>
       p.supportedTokens.includes(token.symbol)
     );
 
@@ -90,11 +90,25 @@ class YieldOptimizer {
     // 2. Current ETH price relative to baseline (3000)
     // 3. Recent price trend
     // 4. Gas costs
+    // 5. For AVS protocols: slashing risk, security score, and uptime
     const bestProtocol = compatibleProtocols.reduce((best, current) => {
       const priceMultiplier = (ethPrice?.price || 3000) / 3000;
       const trendMultiplier = 1 + priceChange * 0.5; // Price trend has 50% weight
 
-      const currentScore = current.apy * priceMultiplier * trendMultiplier;
+      let currentScore = current.apy * priceMultiplier * trendMultiplier;
+
+      // Apply AVS-specific scoring adjustments
+      if (current.type === 'avs') {
+        // Penalize high slashing risk
+        const slashingPenalty = 1 - (current.slashingRisk || 0);
+        // Reward high security scores
+        const securityBonus = ((current.securityScore || 50) / 100) * 1.5;
+        // Reward high uptime
+        const uptimeBonus = ((current.avgUptimePercent || 99) / 100);
+
+        currentScore *= (slashingPenalty * securityBonus * uptimeBonus);
+      }
+
       const bestScore = best.apy * priceMultiplier * trendMultiplier;
 
       return currentScore > bestScore ? current : best;
@@ -160,7 +174,14 @@ class YieldOptimizer {
               gasLimit: totalGasLimit,
               gasPrice: currentGasPrice,
               costInEth: gasCostInEth,
-            }
+            },
+            protocolDetails: bestProtocol.type === 'avs' ? {
+              slashingRisk: bestProtocol.slashingRisk,
+              securityScore: bestProtocol.securityScore,
+              avgUptimePercent: bestProtocol.avgUptimePercent,
+              nodeCount: bestProtocol.nodeCount,
+              riskCategory: bestProtocol.riskCategory
+            } : undefined
           }
         };
       }
@@ -328,9 +349,9 @@ export async function registerRoutes(app: Express) {
       res.json(positions);
     } catch (error: any) {
       console.error('Error fetching wallet positions:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to fetch wallet positions",
-        error: error.message 
+        error: error.message
       });
     }
   });

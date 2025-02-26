@@ -79,6 +79,17 @@ export default function WalletSummary() {
                     <br />
                     Annual Benefit: ${change.analysis.netBenefit.toFixed(2)}
                   </p>
+                  {change.analysis.protocolDetails && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Security Score: {change.analysis.protocolDetails.securityScore}/100
+                      <br />
+                      Risk Level: {change.analysis.protocolDetails.riskCategory}
+                      <br />
+                      Node Count: {change.analysis.protocolDetails.nodeCount}
+                      <br />
+                      Uptime: {change.analysis.protocolDetails.avgUptimePercent}%
+                    </p>
+                  )}
                 </div>
               ))}
               <p className="text-sm font-medium pt-2 border-t border-border">
