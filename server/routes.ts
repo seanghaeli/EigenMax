@@ -1,16 +1,26 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { insertVaultSchema, insertTransactionSchema, insertProtocolSchema, insertPriceSchema } from "@shared/schema";
+import {
+  insertVaultSchema,
+  insertTransactionSchema,
+  insertProtocolSchema,
+  insertPriceSchema,
+} from "@shared/schema";
 
 // Function to fetch ETH price from CoinGecko
 async function fetchEthPrice() {
   try {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    const response = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+    );
     const data = await response.json();
+    if (!data.ethereum || typeof data.ethereum.usd !== "number") {
+      return null;
+    }
     return data.ethereum.usd;
   } catch (error) {
-    console.error('Error fetching ETH price:', error);
+    console.error("Error fetching ETH price:", error);
     return null;
   }
 }
@@ -22,15 +32,15 @@ async function fetchHistoricalEthPrices() {
     const now = Math.floor(Date.now() / 1000);
     const oneHourAgo = now - 3600;
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/ethereum/market_chart/range?vs_currency=usd&from=${oneHourAgo}&to=${now}`
+      `https://api.coingecko.com/api/v3/coins/ethereum/market_chart/range?vs_currency=usd&from=${oneHourAgo}&to=${now}`,
     );
     const data = await response.json();
     return data.prices.map(([timestamp, price]: [number, number]) => ({
       timestamp: new Date(timestamp * 1000), // Corrected timestamp conversion
-      price
+      price,
     }));
   } catch (error) {
-    console.error('Error fetching historical ETH prices:', error);
+    console.error("Error fetching historical ETH prices:", error);
     return [];
   }
 }
@@ -42,9 +52,12 @@ class YieldOptimizer {
     const priceHistory = await storage.getPrices("ethereum");
 
     // Calculate price trend
-    const priceChange = priceHistory.length > 1 
-      ? (priceHistory[0].price - priceHistory[priceHistory.length - 1].price) / priceHistory[priceHistory.length - 1].price
-      : 0;
+    const priceChange =
+      priceHistory.length > 1
+        ? (priceHistory[0].price -
+            priceHistory[priceHistory.length - 1].price) /
+          priceHistory[priceHistory.length - 1].price
+        : 0;
 
     // Enhanced scoring that considers:
     // 1. Base APY
@@ -52,7 +65,7 @@ class YieldOptimizer {
     // 3. Recent price trend
     const bestProtocol = protocols.reduce((best, current) => {
       const priceMultiplier = (ethPrice?.price || 3000) / 3000;
-      const trendMultiplier = 1 + (priceChange * 0.5); // Price trend has 50% weight
+      const trendMultiplier = 1 + priceChange * 0.5; // Price trend has 50% weight
 
       const currentScore = current.apy * priceMultiplier * trendMultiplier;
       const bestScore = best.apy * priceMultiplier * trendMultiplier;
@@ -89,8 +102,8 @@ class YieldOptimizer {
             currentYield: currentYearlyYield,
             projectedYield: newYearlyYield,
             transactionCost,
-            netBenefit: yearlyBenefit - transactionCost
-          }
+            netBenefit: yearlyBenefit - transactionCost,
+          },
         };
       }
     }
@@ -126,7 +139,10 @@ export async function registerRoutes(app: Express) {
   });
 
   app.patch("/api/protocols/:id", async (req, res) => {
-    const protocol = await storage.updateProtocol(Number(req.params.id), req.body);
+    const protocol = await storage.updateProtocol(
+      Number(req.params.id),
+      req.body,
+    );
     res.json(protocol);
   });
 
@@ -207,11 +223,11 @@ export async function registerRoutes(app: Express) {
     if (!address) {
       return res.status(400).json({ message: "Wallet address required" });
     }
-    
+
     const protocols = await storage.getProtocols();
     const walletService = new WalletService();
     const positions = await walletService.getPositions(address, protocols);
-    
+
     res.json(positions);
   });
 

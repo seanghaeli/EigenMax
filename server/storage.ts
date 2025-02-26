@@ -102,7 +102,7 @@ export class MemStorage implements IStorage {
     });
 
     // Add mock price data
-    this.createPrice({ asset: "ethereum", price: 2500, timestamp: new Date() });
+    // this.createPrice({ asset: "ethereum", price: 2500, timestamp: new Date() });
   }
 
   // Protocol methods
