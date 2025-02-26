@@ -61,112 +61,6 @@ export class MemStorage implements IStorage {
     this.transactions = new Map();
     this.prices = new Map();
 
-    // Add new protocol types
-    this.createProtocol({
-      name: "Curve",
-      type: "dex",
-      apy: 5.2,
-      tvl: 15000000,
-      active: true,
-      supportedTokens: ["USDC", "DAI", "wstETH"],
-      gasOverhead: 180000,
-      healthScore: 95,
-      tvlChange24h: -0.5,
-      tvlChange7d: 2.1,
-    });
-
-    this.createProtocol({
-      name: "Balancer",
-      type: "dex",
-      apy: 4.8,
-      tvl: 12000000,
-      active: true,
-      supportedTokens: ["wstETH", "rETH", "AAVE"],
-      gasOverhead: 220000,
-      healthScore: 92,
-      tvlChange24h: 0.8,
-      tvlChange7d: 3.2,
-    });
-
-    this.createProtocol({
-      name: "Uniswap V3",
-      type: "dex",
-      apy: 8.5,
-      tvl: 20000000,
-      active: true,
-      supportedTokens: ["USDC", "DAI", "UNI"],
-      gasOverhead: 150000,
-      healthScore: 98,
-      tvlChange24h: 1.2,
-      tvlChange7d: 4.5,
-    });
-
-    this.createProtocol({
-      name: "Yearn",
-      type: "yield_aggregator",
-      apy: 6.7,
-      tvl: 8000000,
-      active: true,
-      supportedTokens: ["USDC", "DAI", "wstETH"],
-      gasOverhead: 280000,
-      healthScore: 90,
-      tvlChange24h: -0.3,
-      tvlChange7d: 1.8,
-    });
-
-    // Add some Curve LP tokens
-    this.createToken({
-      symbol: "crvUSD",
-      name: "Curve USD LP",
-      type: "curve_lp",
-      decimals: 18,
-      active: true,
-      baseGasLimit: 85000,
-      address: "0x4dCf7407AE5C07f8681e1659f626E114A7667339",
-      protocol: "Curve",
-      poolId: "crvUSD",
-    });
-
-    // Add some Balancer LP tokens
-    this.createToken({
-      symbol: "B-80BAL-20WETH",
-      name: "Balancer 80BAL-20WETH",
-      type: "balancer_lp",
-      decimals: 18,
-      active: true,
-      baseGasLimit: 95000,
-      address: "0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56",
-      protocol: "Balancer",
-      poolId: "80bal-20weth",
-    });
-
-    // Add Uniswap V3 positions
-    this.createToken({
-      symbol: "UNI-V3-USDC-ETH",
-      name: "Uniswap V3 USDC/ETH LP",
-      type: "uniswap_v3",
-      decimals: 18,
-      active: true,
-      baseGasLimit: 102000,
-      address: "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
-      protocol: "Uniswap V3",
-      poolId: "usdc-eth-500",
-      range: "0.95-1.05",
-    });
-
-    // Add Yearn vault tokens
-    this.createToken({
-      symbol: "yvUSDC",
-      name: "Yearn USDC Vault",
-      type: "yearn_vault",
-      decimals: 6,
-      active: true,
-      baseGasLimit: 120000,
-      address: "0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE",
-      protocol: "Yearn",
-      poolId: "usdc-vault",
-    });
-
     // Add mock token data
     this.createToken({
       symbol: "wstETH",
@@ -222,7 +116,6 @@ export class MemStorage implements IStorage {
       baseGasLimit: 52000,
       address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9"
     });
-
 
     // Add mock protocol data with supported tokens
     this.createProtocol({

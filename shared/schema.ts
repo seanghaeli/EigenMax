@@ -7,32 +7,22 @@ export const tokens = pgTable("tokens", {
   symbol: text("symbol").notNull(),
   name: text("name").notNull(),
   type: text("type", { 
-    enum: ["lsd", "governance", "stablecoin", "uniswap_v3", "curve_lp", "balancer_lp", "yearn_vault", "other"] 
+    enum: ["lsd", "governance", "stablecoin", "other"] 
   }).notNull(),
   decimals: integer("decimals").notNull().default(18),
   active: boolean("active").notNull().default(true),
-  baseGasLimit: integer("base_gas_limit").notNull(),
+  baseGasLimit: integer("base_gas_limit").notNull(), 
   address: text("address").notNull(),
-  protocol: text("protocol").notNull().default("other"),
-  poolId: text("pool_id"), 
-  range: text("range"), 
 });
 
 export const protocols = pgTable("protocols", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  type: text("type", {
-    enum: ["lending", "dex", "yield_aggregator", "other"]
-  }).notNull().default("other"),
   apy: real("apy").notNull().default(0),
   tvl: real("tvl").notNull().default(0),
   active: boolean("active").notNull().default(true),
-  supportedTokens: text("supported_tokens").array().notNull(),
-  gasOverhead: integer("gas_overhead").notNull(),
-  healthScore: real("health_score").notNull().default(100),
-  tvlChange24h: real("tvl_change_24h").notNull().default(0),
-  tvlChange7d: real("tvl_change_7d").notNull().default(0),
-  lastUpdate: timestamp("last_update").notNull().defaultNow(),
+  supportedTokens: text("supported_tokens").array().notNull(), 
+  gasOverhead: integer("gas_overhead").notNull(), 
 });
 
 export const vaults = pgTable("vaults", {
@@ -62,8 +52,27 @@ export const prices = pgTable("prices", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
-export const insertTokenSchema = createInsertSchema(tokens).omit({ id: true });
-export const insertProtocolSchema = createInsertSchema(protocols).omit({ id: true });
+export const insertTokenSchema = createInsertSchema(tokens, {
+  id: z.number(),
+  symbol: z.string(),
+  name: z.string(),
+  type: z.enum(["lsd", "governance", "stablecoin", "other"]),
+  decimals: z.number(),
+  active: z.boolean(),
+  baseGasLimit: z.number(),
+  address: z.string(),
+}).omit({ id: true });
+
+export const insertProtocolSchema = createInsertSchema(protocols, {
+  id: z.number(),
+  name: z.string(),
+  apy: z.number(),
+  tvl: z.number(),
+  active: z.boolean(),
+  supportedTokens: z.array(z.string()),
+  gasOverhead: z.number(),
+}).omit({ id: true });
+
 export const insertVaultSchema = createInsertSchema(vaults, {
   id: z.number(),
   name: z.string(),
@@ -73,6 +82,7 @@ export const insertVaultSchema = createInsertSchema(vaults, {
   token: z.string(),
   apy: z.number(),
 }).omit({ id: true });
+
 export const insertTransactionSchema = createInsertSchema(transactions, {
   id: z.number(),
   vaultId: z.number(),
@@ -82,6 +92,7 @@ export const insertTransactionSchema = createInsertSchema(transactions, {
   gasCost: z.number(),
   txHash: z.string().optional(),
 }).omit({ id: true });
+
 export const insertPriceSchema = createInsertSchema(prices, {
   id: z.number(),
   asset: z.string(),
