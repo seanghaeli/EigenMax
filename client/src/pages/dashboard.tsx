@@ -14,6 +14,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Protocol, InsertProtocol, Vault } from "@shared/schema";
 import { insertProtocolSchema } from "@shared/schema";
 import PriceFeedPanel from "@/components/price-feed-panel";
+import WalletSummary from "@/components/wallet-summary";
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -156,44 +157,12 @@ export default function Dashboard() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {vaults?.map((vault) => (
-          <Link key={vault.id} href={`/vault/${vault.id}`}>
-            <Card className="hover:bg-neutral-800 transition-colors cursor-pointer">
-              <CardHeader>
-                <CardTitle className="flex justify-between items-center">
-                  <span>{vault.name}</span>
-                  <span className="text-success-500">{vault.apy}% APY</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">{vault.protocol}</span>
-                  <span className="text-xl">${vault.balance.toLocaleString()}</span>
-                </div>
-                <div className="mt-2 flex justify-between items-center">
-                  <span className={`px-2 py-1 rounded text-xs ${vault.autoMode ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>
-                    {vault.autoMode ? 'Auto' : 'Manual'}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      optimizeVault.mutate(vault.id);
-                    }}
-                  >
-                    Re-evaluate
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <WalletSummary />
+        <PriceFeedPanel />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <PriceFeedPanel />
         <Card>
           <CardHeader>
             <CardTitle>Protocol Distribution</CardTitle>
