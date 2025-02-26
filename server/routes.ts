@@ -202,5 +202,18 @@ export async function registerRoutes(app: Express) {
     res.json(transaction);
   });
 
+  app.post("/api/wallet/positions", async (req, res) => {
+    const { address } = req.body;
+    if (!address) {
+      return res.status(400).json({ message: "Wallet address required" });
+    }
+    
+    const protocols = await storage.getProtocols();
+    const walletService = new WalletService();
+    const positions = await walletService.getPositions(address, protocols);
+    
+    res.json(positions);
+  });
+
   return createServer(app);
 }
