@@ -18,6 +18,7 @@ interface TokenPosition {
 export default function WalletSummary() {
   const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
+  const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState<boolean>(false);
 
   const { data: vaults = [] } = useQuery<Vault[]>({
     queryKey: ["/api/vaults"],
@@ -39,31 +40,40 @@ export default function WalletSummary() {
   const totalProjectedYield = positions.reduce((sum, pos) => sum + pos.projectedAnnualYield, 0);
 
   useEffect(() => {
-    // Check if already connected
-    if (window.ethereum) {
-      window.ethereum.request({ method: 'eth_accounts' })
-        .then((accounts: string[]) => {
+    // Check for MetaMask installation
+    const checkMetaMask = () => {
+      const isInstalled = typeof window !== 'undefined' && Boolean(window.ethereum?.isMetaMask);
+      setIsMetaMaskInstalled(isInstalled);
+
+      if (isInstalled) {
+        // Check if already connected
+        window.ethereum?.request({ method: 'eth_accounts' })
+          .then((accounts: string[]) => {
+            if (accounts.length > 0) {
+              setAddress(accounts[0]);
+            }
+          })
+          .catch(console.error);
+
+        // Listen for account changes
+        const handleAccountsChanged = (accounts: string[]) => {
           if (accounts.length > 0) {
             setAddress(accounts[0]);
+          } else {
+            setAddress(null);
           }
-        })
-        .catch(console.error);
+        };
 
-      // Listen for account changes
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length > 0) {
-          setAddress(accounts[0]);
-        } else {
-          setAddress(null);
-        }
-      });
-    }
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
 
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', () => {});
+        return () => {
+          window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
+        };
       }
     };
+
+    // Small delay to ensure MetaMask has time to inject
+    setTimeout(checkMetaMask, 100);
   }, []);
 
   const evaluateAll = useMutation({
@@ -108,18 +118,19 @@ export default function WalletSummary() {
   });
 
   async function connectWallet() {
-    if (!window.ethereum) {
+    if (!isMetaMaskInstalled) {
+      window.open('https://metamask.io/download/', '_blank');
       toast({
         title: "MetaMask Required",
-        description: "Please install MetaMask to connect your wallet.",
+        description: "Please install MetaMask to connect your wallet. Redirecting you to the download page.",
       });
       return;
     }
 
     try {
       // Request account access
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts'  // This triggers the MetaMask popup
+      const accounts = await window.ethereum!.request({
+        method: 'eth_requestAccounts'
       }) as string[];
 
       if (accounts.length > 0) {
@@ -150,7 +161,7 @@ export default function WalletSummary() {
           <Wallet className="w-12 h-12 text-muted-foreground mb-4" />
           <p className="text-muted-foreground mb-4">Connect your wallet to view your portfolio</p>
           <Button onClick={connectWallet}>
-            Connect Wallet
+            {isMetaMaskInstalled ? 'Connect Wallet' : 'Install MetaMask'}
           </Button>
         </CardContent>
       </Card>
