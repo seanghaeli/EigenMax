@@ -89,6 +89,33 @@ export class MemStorage implements IStorage {
       baseGasLimit: 45000,
       address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
     });
+    this.createToken({
+      symbol: "DAI",
+      name: "Dai Stablecoin",
+      type: "stablecoin",
+      decimals: 18,
+      active: true,
+      baseGasLimit: 48000,
+      address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+    });
+    this.createToken({
+      symbol: "UNI",
+      name: "Uniswap",
+      type: "governance",
+      decimals: 18,
+      active: true,
+      baseGasLimit: 55000,
+      address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+    });
+    this.createToken({
+      symbol: "AAVE",
+      name: "Aave Token",
+      type: "governance",
+      decimals: 18,
+      active: true,
+      baseGasLimit: 52000,
+      address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9"
+    });
 
     // Add mock protocol data with supported tokens
     this.createProtocol({
@@ -96,7 +123,7 @@ export class MemStorage implements IStorage {
       apy: 4.5,
       tvl: 10000000,
       active: true,
-      supportedTokens: ["wstETH", "rETH", "USDC"],
+      supportedTokens: ["wstETH", "rETH", "USDC", "DAI", "UNI", "AAVE"],
       gasOverhead: 220000
     });
     this.createProtocol({
@@ -104,7 +131,7 @@ export class MemStorage implements IStorage {
       apy: 3.8,
       tvl: 8500000,
       active: true,
-      supportedTokens: ["USDC"],
+      supportedTokens: ["USDC", "DAI"],
       gasOverhead: 180000
     });
     this.createProtocol({
@@ -112,11 +139,11 @@ export class MemStorage implements IStorage {
       apy: 4.2,
       tvl: 7000000,
       active: true,
-      supportedTokens: ["wstETH", "USDC"],
+      supportedTokens: ["wstETH", "USDC", "DAI"],
       gasOverhead: 250000
     });
 
-    // Add mock vault data
+    // Add mock vault data with diverse portfolio
     this.createVault({
       name: "USDC Vault",
       balance: 10000,
@@ -132,6 +159,22 @@ export class MemStorage implements IStorage {
       protocol: "Morpho",
       token: "wstETH",
       apy: 4.2
+    });
+    this.createVault({
+      name: "DAI Vault",
+      balance: 15000,
+      autoMode: true,
+      protocol: "Compound",
+      token: "DAI",
+      apy: 3.8
+    });
+    this.createVault({
+      name: "UNI Governance Vault",
+      balance: 1000,
+      autoMode: false,
+      protocol: "AAVE",
+      token: "UNI",
+      apy: 2.5
     });
   }
 
