@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Wallet } from "lucide-react";
 import type { Protocol, Vault } from "@shared/schema";
 
@@ -18,7 +19,7 @@ interface TokenPosition {
 export default function WalletSummary() {
   const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
-  const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState<boolean>(false);
+  const [inputAddress, setInputAddress] = useState('');
 
   const { data: vaults = [] } = useQuery<Vault[]>({
     queryKey: ["/api/vaults"],
@@ -38,43 +39,6 @@ export default function WalletSummary() {
 
   const totalBalance = positions.reduce((sum, pos) => sum + pos.balance, 0);
   const totalProjectedYield = positions.reduce((sum, pos) => sum + pos.projectedAnnualYield, 0);
-
-  useEffect(() => {
-    // Check for MetaMask installation
-    const checkMetaMask = () => {
-      const isInstalled = typeof window !== 'undefined' && Boolean(window.ethereum?.isMetaMask);
-      setIsMetaMaskInstalled(isInstalled);
-
-      if (isInstalled) {
-        // Check if already connected
-        window.ethereum?.request({ method: 'eth_accounts' })
-          .then((accounts: string[]) => {
-            if (accounts.length > 0) {
-              setAddress(accounts[0]);
-            }
-          })
-          .catch(console.error);
-
-        // Listen for account changes
-        const handleAccountsChanged = (accounts: string[]) => {
-          if (accounts.length > 0) {
-            setAddress(accounts[0]);
-          } else {
-            setAddress(null);
-          }
-        };
-
-        window.ethereum.on('accountsChanged', handleAccountsChanged);
-
-        return () => {
-          window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
-        };
-      }
-    };
-
-    // Small delay to ensure MetaMask has time to inject
-    setTimeout(checkMetaMask, 100);
-  }, []);
 
   const evaluateAll = useMutation({
     mutationFn: async () => {
@@ -117,39 +81,45 @@ export default function WalletSummary() {
     },
   });
 
-  async function connectWallet() {
-    if (!isMetaMaskInstalled) {
-      window.open('https://metamask.io/download/', '_blank');
+  const connectWallet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputAddress.startsWith('0x') || inputAddress.length !== 42) {
       toast({
-        title: "MetaMask Required",
-        description: "Please install MetaMask to connect your wallet. Redirecting you to the download page.",
+        title: "Invalid Address",
+        description: "Please enter a valid Ethereum wallet address.",
       });
       return;
     }
 
     try {
-      // Request account access
-      const accounts = await window.ethereum!.request({
-        method: 'eth_requestAccounts'
-      }) as string[];
+      const response = await apiRequest("POST", "/api/wallet/positions", {
+        address: inputAddress
+      });
+      const data = await response.json();
 
-      if (accounts.length > 0) {
-        setAddress(accounts[0]);
+      if (data) {
+        setAddress(inputAddress);
         toast({
           title: "Wallet Connected",
-          description: "Successfully connected to your wallet.",
+          description: "Successfully loaded wallet positions.",
         });
-      } else {
-        throw new Error("No accounts found");
       }
     } catch (error: any) {
-      console.error('Wallet connection error:', error);
       toast({
         title: "Connection Failed",
-        description: error.message || "Failed to connect to your wallet. Please try again.",
+        description: error.message || "Failed to load wallet positions. Please try again.",
       });
     }
-  }
+  };
+
+  const loadMockPortfolio = () => {
+    const mockAddress = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
+    setAddress(mockAddress);
+    toast({
+      title: "Demo Portfolio Loaded",
+      description: "Successfully loaded a mock portfolio for demonstration.",
+    });
+  };
 
   if (!address) {
     return (
@@ -159,10 +129,23 @@ export default function WalletSummary() {
         </CardHeader>
         <CardContent className="flex flex-col items-center justify-center py-8">
           <Wallet className="w-12 h-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground mb-4">Connect your wallet to view your portfolio</p>
-          <Button onClick={connectWallet}>
-            {isMetaMaskInstalled ? 'Connect Wallet' : 'Install MetaMask'}
-          </Button>
+          <p className="text-muted-foreground mb-4">Enter your wallet address to view your portfolio</p>
+          <form onSubmit={connectWallet} className="flex gap-2 w-full max-w-md">
+            <Input 
+              placeholder="0x..." 
+              value={inputAddress}
+              onChange={(e) => setInputAddress(e.target.value)}
+              className="flex-1"
+            />
+            <Button type="submit">
+              View Portfolio
+            </Button>
+          </form>
+          <div className="mt-4">
+            <Button variant="outline" onClick={loadMockPortfolio}>
+              Mock Portfolio
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

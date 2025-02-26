@@ -33,15 +33,22 @@ async function fetchHistoricalEthPrices() {
     const now = Math.floor(Date.now() / 1000);
     const oneHourAgo = now - 3600;
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/ethereum/market_chart/range?vs_currency=usd&from=${oneHourAgo}&to=${now}`,
+      `https://api.coingecko.com/api/v3/coins/ethereum/market_chart/range?vs_currency=usd&from=${oneHourAgo}&to=${now}`
     );
     const data = await response.json();
+
+    // Verify that we have price data before processing
+    if (!data || !data.prices || !Array.isArray(data.prices)) {
+      console.error('Invalid price data format from CoinGecko:', data);
+      return [];
+    }
+
     return data.prices.map(([timestamp, price]: [number, number]) => ({
-      timestamp: new Date(timestamp * 1000), // Corrected timestamp conversion
+      timestamp: new Date(timestamp * 1000),
       price,
     }));
   } catch (error) {
-    console.error("Error fetching historical ETH prices:", error);
+    console.error('Error fetching historical ETH prices:', error);
     return [];
   }
 }
@@ -276,17 +283,25 @@ export async function registerRoutes(app: Express) {
     res.json(transaction);
   });
 
+  // Wallet position endpoint
   app.post("/api/wallet/positions", async (req, res) => {
     const { address } = req.body;
     if (!address) {
       return res.status(400).json({ message: "Wallet address required" });
     }
 
-    const protocols = await storage.getProtocols();
-    const walletService = new WalletService();
-    const positions = await walletService.getPositions(address, protocols);
-
-    res.json(positions);
+    try {
+      const protocols = await storage.getProtocols();
+      const walletService = new WalletService(process.env.RPC_URL || "https://eth-mainnet.g.alchemy.com/v2/demo");
+      const positions = await walletService.getPositions(address, protocols);
+      res.json(positions);
+    } catch (error: any) {
+      console.error('Error fetching wallet positions:', error);
+      res.status(500).json({ 
+        message: "Failed to fetch wallet positions",
+        error: error.message 
+      });
+    }
   });
 
   return createServer(app);
