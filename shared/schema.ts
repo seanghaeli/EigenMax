@@ -17,6 +17,10 @@ export const vaults = pgTable("vaults", {
   autoMode: boolean("auto_mode").notNull().default(false),
   protocol: text("protocol").notNull(),
   apy: real("apy").notNull().default(0),
+  tokenAddress: text("token_address").notNull(),
+  chainId: integer("chain_id").notNull().default(1),
+  tokenType: text("token_type", { enum: ["stable", "lsd", "governance", "other"] }).notNull(),
+  lastRebalance: timestamp("last_rebalance"),
 });
 
 export const transactions = pgTable("transactions", {
