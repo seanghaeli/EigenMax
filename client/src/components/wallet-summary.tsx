@@ -66,7 +66,22 @@ export default function WalletSummary() {
           description: (
             <div className="space-y-2">
               <p>{changes.length} positions optimized</p>
-              <p className="text-sm text-muted-foreground">
+              {changes.map((change, index) => (
+                <div key={index} className="text-sm border-l-2 border-primary pl-2 mt-1">
+                  <p>
+                    <span className="font-medium">{change.vault.token}</span>: Moved from{" "}
+                    <span className="text-muted-foreground">{change.vault.protocol}</span> for better APY
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    APY: {change.vault.apy}% (↑ from previous)
+                    <br />
+                    Gas Cost: ${change.analysis.gasCost.toFixed(2)}
+                    <br />
+                    Annual Benefit: ${change.analysis.netBenefit.toFixed(2)}
+                  </p>
+                </div>
+              ))}
+              <p className="text-sm font-medium pt-2 border-t border-border">
                 Total Annual Benefit: ${totalBenefit.toLocaleString()}
               </p>
             </div>
