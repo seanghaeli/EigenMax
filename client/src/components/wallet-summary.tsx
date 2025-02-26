@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { Wallet } from "lucide-react";
 import type { Protocol, Vault } from "@shared/schema";
 
 interface TokenPosition {
@@ -15,6 +17,7 @@ interface TokenPosition {
 
 export default function WalletSummary() {
   const { toast } = useToast();
+  const [address, setAddress] = useState<string | null>(null);
 
   const { data: vaults = [] } = useQuery<Vault[]>({
     queryKey: ["/api/vaults"],
@@ -38,7 +41,7 @@ export default function WalletSummary() {
   const evaluateAll = useMutation({
     mutationFn: async () => {
       const results = await Promise.all(
-        vaults.map(vault => 
+        vaults.map(vault =>
           apiRequest("POST", `/api/vaults/${vault.id}/optimize`)
             .then(res => res.json())
         )
@@ -55,7 +58,7 @@ export default function WalletSummary() {
         });
 
         const totalBenefit = changes.reduce((sum, change) => sum + change.analysis.netBenefit, 0);
-        
+
         toast({
           title: "Portfolio Rebalanced",
           description: (
@@ -76,16 +79,65 @@ export default function WalletSummary() {
     },
   });
 
+  async function connectWallet() {
+    try {
+      if (!window.ethereum) {
+        toast({
+          title: "MetaMask Required",
+          description: "Please install MetaMask to connect your wallet.",
+        });
+        return;
+      }
+
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts'
+      });
+      setAddress(accounts[0]);
+
+      toast({
+        title: "Wallet Connected",
+        description: "Successfully connected to your wallet.",
+      });
+    } catch (error) {
+      toast({
+        title: "Connection Failed",
+        description: "Failed to connect to your wallet. Please try again.",
+      });
+    }
+  }
+
+  if (!address) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle>Portfolio Summary</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-8">
+          <Wallet className="w-12 h-12 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground mb-4">Connect your wallet to view your portfolio</p>
+          <Button onClick={connectWallet}>
+            Connect Wallet
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Portfolio Summary</CardTitle>
-        <Button 
-          onClick={() => evaluateAll.mutate()}
-          disabled={evaluateAll.isPending}
-        >
-          Re-evaluate All
-        </Button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            {address.slice(0, 6)}...{address.slice(-4)}
+          </span>
+          <Button
+            onClick={() => evaluateAll.mutate()}
+            disabled={evaluateAll.isPending}
+          >
+            Re-evaluate All
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4">
@@ -99,7 +151,7 @@ export default function WalletSummary() {
               <p className="text-2xl font-bold text-success-500">${totalProjectedYield.toLocaleString()}</p>
             </div>
           </div>
-          
+
           <div className="space-y-2">
             {positions.map((position, i) => (
               <div key={i} className="flex items-center justify-between py-2 border-t">
