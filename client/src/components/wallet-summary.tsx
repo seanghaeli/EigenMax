@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Wallet, Layers } from "lucide-react";
 import type { Protocol, Vault } from "@shared/schema";
+import { AVSSelectionDialog } from "./avs-selection-dialog";
 
 interface TokenPosition {
   token: string;
@@ -20,6 +21,7 @@ export default function WalletSummary() {
   const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
   const [inputAddress, setInputAddress] = useState('');
+  const [showAVSDialog, setShowAVSDialog] = useState(false);
 
   const { data: vaults = [] } = useQuery<Vault[]>({
     queryKey: ["/api/vaults"],
@@ -53,7 +55,6 @@ export default function WalletSummary() {
     onSuccess: (results) => {
       const changes = results.filter(result => result.vault);
       if (changes.length > 0) {
-        // Refresh all related data
         queryClient.invalidateQueries({ queryKey: ["/api/vaults"] });
         vaults.forEach(vault => {
           queryClient.invalidateQueries({ queryKey: [`/api/vaults/${vault.id}/transactions`] });
@@ -240,7 +241,6 @@ export default function WalletSummary() {
     );
   }
 
-  // Check if there are any LST tokens in the portfolio
   const hasLSTTokens = positions.some(pos => 
     ["wstETH", "rETH", "cbETH"].includes(pos.token)
   );
@@ -261,7 +261,7 @@ export default function WalletSummary() {
           </Button>
           {hasLSTTokens && (
             <Button
-              onClick={() => optimizeRestake.mutate()}
+              onClick={() => setShowAVSDialog(true)}
               disabled={optimizeRestake.isPending}
               variant="secondary"
             >
@@ -300,6 +300,12 @@ export default function WalletSummary() {
           </div>
         </div>
       </CardContent>
+      <AVSSelectionDialog
+        open={showAVSDialog}
+        onOpenChange={setShowAVSDialog}
+        protocols={protocols}
+        onConfirm={() => optimizeRestake.mutate()}
+      />
     </Card>
   );
 }
