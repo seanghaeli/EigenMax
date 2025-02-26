@@ -185,6 +185,8 @@ export async function registerRoutes(app: Express) {
   const updateProtocolData = async () => {
     try {
       const protocols = await storage.getProtocols();
+      console.log('Fetching updates for protocols:', protocols.map(p => p.name));
+
       const updatedProtocols = await defiLlama.updateProtocolData(protocols);
 
       for (const protocol of updatedProtocols) {

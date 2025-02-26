@@ -29,6 +29,7 @@ export class DefiLlamaService {
   async getProtocolYields(): Promise<DefiLlamaProtocol[]> {
     try {
       const response = await fetch(this.poolsUrl);
+      console.log("Fetching yields from:", this.poolsUrl); // Added logging
       const data = await response.json();
       return data.data.map((pool: any) => ({
         tvl: pool.tvlUsd,
@@ -53,7 +54,7 @@ export class DefiLlamaService {
     // - Smart contract audits (weight: 0.3)
     const tvlStability = Math.abs(pool.tvlUsdChange24h) < 10 ? 100 : 
       Math.max(0, 100 - Math.abs(pool.tvlUsdChange24h));
-    
+
     const protocolLongevity = pool.inception ? 
       Math.min(100, ((Date.now() - new Date(pool.inception).getTime()) / (365 * 24 * 60 * 60 * 1000)) * 100) : 
       50;
@@ -65,13 +66,22 @@ export class DefiLlamaService {
 
   async updateProtocolData(protocols: Protocol[]): Promise<Protocol[]> {
     const yields = await this.getProtocolYields();
-    
+    console.log('Fetched yields from DeFi Llama:', yields.length, 'protocols');
+
     return protocols.map(protocol => {
       const protocolYield = yields.find(y => 
         y.project.toLowerCase() === protocol.name.toLowerCase()
       );
 
       if (protocolYield) {
+        console.log(`Updating protocol ${protocol.name} with DeFi Llama data:`, {
+          tvl: protocolYield.tvl,
+          apy: protocolYield.apy,
+          healthScore: protocolYield.healthScore,
+          tvlChange24h: protocolYield.tvlChange24h,
+          tvlChange7d: protocolYield.tvlChange7d
+        });
+
         return {
           ...protocol,
           tvl: protocolYield.tvl,
@@ -81,7 +91,7 @@ export class DefiLlamaService {
           tvlChange7d: protocolYield.tvlChange7d
         };
       }
-      
+
       return protocol;
     });
   }
