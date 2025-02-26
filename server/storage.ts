@@ -157,6 +157,40 @@ export class MemStorage implements IStorage {
       tvlChange7d: 2.1,
       lastUpdate: new Date()
     });
+
+    // Add mock vault data with diverse portfolio
+    this.createVault({
+      name: "USDC Vault",
+      balance: 10000,
+      autoMode: true,
+      protocol: "AAVE",
+      token: "USDC",
+      apy: 4.5
+    });
+    this.createVault({
+      name: "wstETH Vault",
+      balance: 5,
+      autoMode: true,
+      protocol: "Morpho",
+      token: "wstETH",
+      apy: 4.2
+    });
+    this.createVault({
+      name: "DAI Vault",
+      balance: 15000,
+      autoMode: true,
+      protocol: "Compound",
+      token: "DAI",
+      apy: 3.8
+    });
+    this.createVault({
+      name: "UNI Governance Vault",
+      balance: 1000,
+      autoMode: false,
+      protocol: "AAVE",
+      token: "UNI",
+      apy: 2.5
+    });
   }
 
   // Token methods
