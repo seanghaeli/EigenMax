@@ -120,61 +120,42 @@ export class MemStorage implements IStorage {
     // Add mock protocol data with supported tokens
     this.createProtocol({
       name: "AAVE",
+      type: "lending",
       apy: 4.5,
       tvl: 10000000,
       active: true,
       supportedTokens: ["wstETH", "rETH", "USDC", "DAI", "UNI", "AAVE"],
-      gasOverhead: 220000
+      gasOverhead: 220000,
+      healthScore: 85,
+      tvlChange24h: 2.5,
+      tvlChange7d: 5.8,
+      lastUpdate: new Date()
     });
     this.createProtocol({
       name: "Compound",
+      type: "lending",
       apy: 3.8,
       tvl: 8500000,
       active: true,
       supportedTokens: ["USDC", "DAI"],
-      gasOverhead: 180000
+      gasOverhead: 180000,
+      healthScore: 82,
+      tvlChange24h: 1.2,
+      tvlChange7d: 3.4,
+      lastUpdate: new Date()
     });
     this.createProtocol({
       name: "Morpho",
+      type: "lending",
       apy: 4.2,
       tvl: 7000000,
       active: true,
       supportedTokens: ["wstETH", "USDC", "DAI"],
-      gasOverhead: 250000
-    });
-
-    // Add mock vault data with diverse portfolio
-    this.createVault({
-      name: "USDC Vault",
-      balance: 10000,
-      autoMode: true,
-      protocol: "AAVE",
-      token: "USDC",
-      apy: 4.5
-    });
-    this.createVault({
-      name: "wstETH Vault",
-      balance: 5,
-      autoMode: true,
-      protocol: "Morpho",
-      token: "wstETH",
-      apy: 4.2
-    });
-    this.createVault({
-      name: "DAI Vault",
-      balance: 15000,
-      autoMode: true,
-      protocol: "Compound",
-      token: "DAI",
-      apy: 3.8
-    });
-    this.createVault({
-      name: "UNI Governance Vault",
-      balance: 1000,
-      autoMode: false,
-      protocol: "AAVE",
-      token: "UNI",
-      apy: 2.5
+      gasOverhead: 250000,
+      healthScore: 78,
+      tvlChange24h: -0.8,
+      tvlChange7d: 2.1,
+      lastUpdate: new Date()
     });
   }
 

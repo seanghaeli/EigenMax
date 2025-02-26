@@ -174,6 +174,9 @@ export default function Dashboard() {
                   name={protocol.name}
                   apy={protocol.apy}
                   tvl={protocol.tvl}
+                  healthScore={protocol.healthScore}
+                  tvlChange24h={protocol.tvlChange24h}
+                  tvlChange7d={protocol.tvlChange7d}
                 />
                 <Button
                   variant="ghost"
