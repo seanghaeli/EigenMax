@@ -18,11 +18,18 @@ export const tokens = pgTable("tokens", {
 export const protocols = pgTable("protocols", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  type: text("type", { 
+    enum: ["lending", "dex", "yield_aggregator", "other"] 
+  }).notNull(),
   apy: real("apy").notNull().default(0),
   tvl: real("tvl").notNull().default(0),
   active: boolean("active").notNull().default(true),
-  supportedTokens: text("supported_tokens").array().notNull(), 
-  gasOverhead: integer("gas_overhead").notNull(), 
+  supportedTokens: text("supported_tokens").array().notNull(),
+  gasOverhead: integer("gas_overhead").notNull(),
+  healthScore: real("health_score").notNull().default(50),
+  tvlChange24h: real("tvl_change_24h").notNull().default(0),
+  tvlChange7d: real("tvl_change_7d").notNull().default(0),
+  lastUpdate: timestamp("last_update").notNull().defaultNow(),
 });
 
 export const vaults = pgTable("vaults", {
@@ -66,11 +73,16 @@ export const insertTokenSchema = createInsertSchema(tokens, {
 export const insertProtocolSchema = createInsertSchema(protocols, {
   id: z.number(),
   name: z.string(),
+  type: z.enum(["lending", "dex", "yield_aggregator", "other"]),
   apy: z.number(),
   tvl: z.number(),
   active: z.boolean(),
   supportedTokens: z.array(z.string()),
   gasOverhead: z.number(),
+  healthScore: z.number(),
+  tvlChange24h: z.number(),
+  tvlChange7d: z.number(),
+  lastUpdate: z.date(),
 }).omit({ id: true });
 
 export const insertVaultSchema = createInsertSchema(vaults, {

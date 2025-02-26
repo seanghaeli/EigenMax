@@ -8,6 +8,7 @@ import {
   insertPriceSchema,
   type Protocol,
 } from "@shared/schema";
+import { defiLlama } from "./defi-llama-service";
 
 // Function to fetch ETH price from CoinGecko
 async function fetchEthPrice() {
@@ -179,6 +180,34 @@ export async function registerRoutes(app: Express) {
       timestamp,
     });
   }
+
+  // Initialize protocol data with DeFi Llama
+  const updateProtocolData = async () => {
+    try {
+      const protocols = await storage.getProtocols();
+      const updatedProtocols = await defiLlama.updateProtocolData(protocols);
+
+      for (const protocol of updatedProtocols) {
+        await storage.updateProtocol(protocol.id, {
+          tvl: protocol.tvl,
+          apy: protocol.apy,
+          healthScore: protocol.healthScore,
+          tvlChange24h: protocol.tvlChange24h,
+          tvlChange7d: protocol.tvlChange7d,
+          lastUpdate: new Date()
+        });
+      }
+
+      console.log('Updated protocol data from DeFi Llama');
+    } catch (error) {
+      console.error('Error updating protocol data:', error);
+    }
+  };
+
+  // Update protocol data every 5 minutes
+  setInterval(updateProtocolData, 5 * 60 * 1000);
+  await updateProtocolData(); // Initial update
+
 
   // Token routes
   app.get("/api/tokens", async (_req, res) => {
