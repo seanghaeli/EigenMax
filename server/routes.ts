@@ -325,6 +325,11 @@ export async function registerRoutes(app: Express) {
     const vault = await storage.getVault(Number(req.params.id));
     if (!vault) return res.status(404).json({ message: "Vault not found" });
 
+    const { strategy } = req.body;
+    if (!strategy) {
+      return res.status(400).json({ message: "Strategy is required" });
+    }
+
     const protocols = await storage.getActiveProtocols();
     const ethPrice = await storage.getLatestPrice("ethereum");
     const priceHistory = await storage.getPrices("ethereum");
@@ -344,35 +349,35 @@ export async function registerRoutes(app: Express) {
       return res.json({ message: "No compatible AVS protocols found" });
     }
 
-    // Calculate price trend
-    const priceChange =
-      priceHistory.length > 1
-        ? ((priceHistory[0].price - priceHistory[priceHistory.length - 1].price) /
-            priceHistory[priceHistory.length - 1].price) *
-          100
-        : 0;
+    // Simple strategy analysis (placeholder for LLM integration)
+    const strategyText = strategy.toLowerCase();
+    let riskMultiplier = 1;
+    let securityMultiplier = 1;
+    let yieldMultiplier = 1;
 
-    // Get current gas price (simplified)
-    const currentGasPrice = 30; // Gwei
+    if (strategyText.includes('conservative') || strategyText.includes('safe')) {
+      riskMultiplier = 0.5;
+      securityMultiplier = 1.5;
+      yieldMultiplier = 0.8;
+    } else if (strategyText.includes('aggressive') || strategyText.includes('high risk')) {
+      riskMultiplier = 1.5;
+      securityMultiplier = 0.8;
+      yieldMultiplier = 1.2;
+    }
 
-    // Enhanced scoring that considers:
-    // 1. Base APY
-    // 2. Node count and distribution
-    // 3. Slashing risk
-    // 4. Security score
-    // 5. Historical uptime
+    // Enhanced scoring that considers user strategy
     const bestProtocol = compatibleAVS.reduce((best, current) => {
       // Base score from APY
-      let currentScore = current.apy;
+      let currentScore = current.apy * yieldMultiplier;
 
       // Node distribution score (more nodes = better)
       const nodeScore = Math.min(current.nodeCount / 1000, 1); // Cap at 1000 nodes
 
       // Slashing risk penalty (inverse relationship)
-      const slashingPenalty = 1 - (current.slashingRisk || 0);
+      const slashingPenalty = (1 - (current.slashingRisk || 0)) * riskMultiplier;
 
       // Security score bonus
-      const securityBonus = ((current.securityScore || 50) / 100) * 1.5;
+      const securityBonus = ((current.securityScore || 50) / 100) * securityMultiplier;
 
       // Uptime score
       const uptimeScore = ((current.avgUptimePercent || 99) / 100);
@@ -381,10 +386,10 @@ export async function registerRoutes(app: Express) {
       currentScore *= (nodeScore * slashingPenalty * securityBonus * uptimeScore);
 
       // Calculate the same for the current best
-      let bestScore = best.apy;
+      let bestScore = best.apy * yieldMultiplier;
       const bestNodeScore = Math.min(best.nodeCount / 1000, 1);
-      const bestSlashingPenalty = 1 - (best.slashingRisk || 0);
-      const bestSecurityBonus = ((best.securityScore || 50) / 100) * 1.5;
+      const bestSlashingPenalty = (1 - (best.slashingRisk || 0)) * riskMultiplier;
+      const bestSecurityBonus = ((best.securityScore || 50) / 100) * securityMultiplier;
       const bestUptimeScore = ((best.avgUptimePercent || 99) / 100);
       bestScore *= (bestNodeScore * bestSlashingPenalty * bestSecurityBonus * bestUptimeScore);
 
@@ -394,7 +399,7 @@ export async function registerRoutes(app: Express) {
     if (bestProtocol.name !== vault.protocol) {
       // Calculate total gas cost
       const totalGasLimit = token.baseGasLimit + bestProtocol.gasOverhead;
-      const gasCostInGwei = totalGasLimit * currentGasPrice;
+      const gasCostInGwei = totalGasLimit * 30; // Using fixed gas price for simplicity
       const gasCostInEth = gasCostInGwei * 1e-9;
       const gasCostInUsd = gasCostInEth * (ethPrice?.price || 3000);
 
@@ -403,8 +408,12 @@ export async function registerRoutes(app: Express) {
       const newYearlyYield = vault.balance * (bestProtocol.apy / 100);
       const yearlyBenefit = newYearlyYield - currentYearlyYield;
 
-      // Higher threshold for restaking due to potentially higher risks
-      const minBenefitThreshold = gasCostInUsd * 3;
+      // Adjust threshold based on strategy
+      const minBenefitThreshold = gasCostInUsd * (
+        strategyText.includes('conservative') ? 4 :
+        strategyText.includes('aggressive') ? 2 :
+        3 // Default moderate threshold
+      );
 
       if (yearlyBenefit > minBenefitThreshold) {
         const transaction = await storage.createTransaction({
@@ -424,7 +433,7 @@ export async function registerRoutes(app: Express) {
           vault: updatedVault,
           transaction,
           analysis: {
-            priceChange,
+            strategy: strategyText,
             currentYield: currentYearlyYield,
             projectedYield: newYearlyYield,
             gasCost: gasCostInUsd,
@@ -432,7 +441,7 @@ export async function registerRoutes(app: Express) {
             tokenType: token.type,
             gasDetails: {
               gasLimit: totalGasLimit,
-              gasPrice: currentGasPrice,
+              gasPrice: 30,
               costInEth: gasCostInEth,
             },
             protocolDetails: {

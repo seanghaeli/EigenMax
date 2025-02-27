@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Wallet, Layers } from "lucide-react";
 import type { Protocol, Vault } from "@shared/schema";
-import { AVSSelectionDialog } from "./avs-selection-dialog";
+import { RestakingStrategyDialog } from "./restaking-strategy-dialog";
 
 interface TokenPosition {
   token: string;
@@ -21,7 +21,7 @@ export default function WalletSummary() {
   const { toast } = useToast();
   const [address, setAddress] = useState<string | null>(null);
   const [inputAddress, setInputAddress] = useState('');
-  const [showAVSDialog, setShowAVSDialog] = useState(false);
+  const [showRestakingDialog, setShowRestakingDialog] = useState(false);
 
   const { data: vaults = [] } = useQuery<Vault[]>({
     queryKey: ["/api/vaults"],
@@ -109,12 +109,14 @@ export default function WalletSummary() {
   });
 
   const optimizeRestake = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (strategy: string) => {
       const results = await Promise.all(
         vaults
           .filter(vault => ["wstETH", "rETH", "cbETH"].includes(vault.token))
           .map(vault =>
-            apiRequest("POST", `/api/vaults/${vault.id}/optimize-restake`)
+            apiRequest("POST", `/api/vaults/${vault.id}/optimize-restake`, {
+              strategy
+            })
               .then(res => res.json())
           )
       );
@@ -261,7 +263,7 @@ export default function WalletSummary() {
           </Button>
           {hasLSTTokens && (
             <Button
-              onClick={() => setShowAVSDialog(true)}
+              onClick={() => setShowRestakingDialog(true)}
               disabled={optimizeRestake.isPending}
               variant="secondary"
             >
@@ -300,11 +302,11 @@ export default function WalletSummary() {
           </div>
         </div>
       </CardContent>
-      <AVSSelectionDialog
-        open={showAVSDialog}
-        onOpenChange={setShowAVSDialog}
+      <RestakingStrategyDialog
+        open={showRestakingDialog}
+        onOpenChange={setShowRestakingDialog}
         protocols={protocols}
-        onConfirm={() => optimizeRestake.mutate()}
+        onConfirm={(strategy) => optimizeRestake.mutate(strategy)}
       />
     </Card>
   );
