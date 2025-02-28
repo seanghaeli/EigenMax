@@ -52,8 +52,6 @@ export function RestakingStrategyDialog({
   const [analyzedStrategy, setAnalyzedStrategy] = useState<Strategy | null>(
     null,
   );
-  console.log(analyzedStrategy);
-  console.log("Helloo there");
   const [opportunities, setOpportunities] = useState<AVSOpportunity[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -150,7 +148,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.riskTolerance * 10}%`,
+                              width: `${analyzedStrategy.riskTolerance * 100}%`,
                             }}
                           />
                         </div>
@@ -164,7 +162,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.yieldPreference * 10}%`,
+                              width: `${analyzedStrategy.yieldPreference * 100}%`,
                             }}
                           />
                         </div>
@@ -178,7 +176,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.securityPreference * 10}%`,
+                              width: `${analyzedStrategy.securityPreference * 100}%`,
                             }}
                           />
                         </div>

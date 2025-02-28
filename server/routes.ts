@@ -505,7 +505,10 @@ export async function registerRoutes(app: Express) {
       }
 
       const strategyAnalysis = await openAIService.analyzeStrategy(strategy);
-      const analyzedOpportunities = await openAIService.analyzeAVSOpportunities(strategyAnalysis);
+      const analyzedOpportunities = await openAIService.analyzeAVSOpportunities(
+        strategyAnalysis,
+        strategy
+      );
 
       res.json({
         strategy: strategyAnalysis,
