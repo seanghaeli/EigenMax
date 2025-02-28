@@ -76,7 +76,7 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-none">
+        <DialogHeader className="flex-none pb-4">
           <DialogTitle>
             {step === 'input' && "Define Your Restaking Strategy"}
             {step === 'analysis' && "AI Analysis of Your Strategy"}
@@ -85,8 +85,8 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          <div className="space-y-4 h-full overflow-y-auto pr-2 scroll-smooth">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full overflow-y-auto pr-2 scroll-smooth space-y-4">
             {step === 'input' && (
               <>
                 <p className="text-sm text-muted-foreground mb-4">
@@ -170,11 +170,11 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
             )}
 
             {step === 'opportunities' && (
-              <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Available AVS opportunities based on your strategy:
-                </p>
-                <div className="space-y-4 pb-4">
+              <div className="flex flex-col h-full">
+                <div className="flex-1 space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Available AVS opportunities based on your strategy:
+                  </p>
                   {opportunities.map((opportunity) => (
                     <Card key={opportunity.protocol.name} className="border border-muted">
                       <CardContent className="pt-6">
@@ -216,7 +216,7 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                     </Card>
                   ))}
                 </div>
-                <div className="sticky bottom-0 bg-background pt-4 border-t">
+                <div className="sticky bottom-0 pt-4 mt-4 bg-background border-t">
                   <Button
                     className="w-full"
                     onClick={() => setStep('recommendation')}
@@ -224,7 +224,7 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                     View Recommendations
                   </Button>
                 </div>
-              </>
+              </div>
             )}
 
             {step === 'recommendation' && (
