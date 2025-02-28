@@ -18,6 +18,14 @@ type Strategy = {
   yieldPreference: number;
   securityPreference: number;
   tokens: string[];
+  aiAnalysis?: {
+    description: string;
+    protocolScores: Array<{
+      name: string;
+      score: number;
+      reasoning: string[];
+    }>;
+  };
 };
 
 export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfirm }: RestakingStrategyDialogProps) {
@@ -25,8 +33,54 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
   const [strategy, setStrategy] = useState<string>('');
   const [analyzedStrategy, setAnalyzedStrategy] = useState<Strategy | null>(null);
   const [selectedProtocols, setSelectedProtocols] = useState<Protocol[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const avsProtocols = protocols.filter(p => p.type === 'avs');
+
+  const handleStrategySubmit = async () => {
+    setLoading(true);
+    try {
+      // Call the optimize-restake endpoint
+      const response = await fetch('/api/vaults/1/optimize-restake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ strategy })
+      });
+
+      const data = await response.json();
+
+      if (data.analysis) {
+        setAnalyzedStrategy({
+          riskTolerance: data.analysis.scoredProtocols[0]?.score || 0.5,
+          yieldPreference: data.analysis.scoredProtocols[0]?.score || 0.5,
+          securityPreference: data.analysis.scoredProtocols[0]?.score || 0.5,
+          tokens: ['wstETH', 'rETH', 'cbETH'],
+          aiAnalysis: {
+            description: data.analysis.strategy,
+            protocolScores: data.analysis.scoredProtocols
+          }
+        });
+
+        // Find and set the selected protocols based on the scores
+        const selectedProtocolNames = data.analysis.scoredProtocols.map(p => p.name);
+        const matchedProtocols = avsProtocols.filter(p => 
+          selectedProtocolNames.includes(p.name)
+        );
+        setSelectedProtocols(matchedProtocols);
+      }
+
+      setStep('analysis');
+    } catch (error) {
+      console.error('Error analyzing strategy:', error);
+      // Fallback to basic analysis if AI fails
+      const analysis = analyzeStrategy(strategy);
+      setAnalyzedStrategy(analysis);
+      matchProtocols(analysis);
+      setStep('analysis');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const analyzeStrategy = (strategyText: string): Strategy => {
     // Simple sentiment analysis (placeholder for LLM integration)
@@ -85,12 +139,6 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
     setSelectedProtocols(sortedProtocols);
   };
 
-  const handleStrategySubmit = () => {
-    const analysis = analyzeStrategy(strategy);
-    setAnalyzedStrategy(analysis);
-    matchProtocols(analysis);
-    setStep('analysis');
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -98,8 +146,8 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
         <DialogHeader>
           <DialogTitle>
             {step === 'input' && "Define Your Restaking Strategy"}
-            {step === 'analysis' && "Analyzing Your Strategy"}
-            {step === 'recommendation' && "Recommended Allocation"}
+            {step === 'analysis' && "AI Analysis of Your Strategy"}
+            {step === 'recommendation' && "AI-Recommended Allocation"}
           </DialogTitle>
         </DialogHeader>
 
@@ -120,9 +168,9 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
               <Button 
                 className="w-full mt-4" 
                 onClick={handleStrategySubmit}
-                disabled={!strategy.trim()}
+                disabled={!strategy.trim() || loading}
               >
-                Analyze Strategy
+                {loading ? "Analyzing Strategy..." : "Analyze Strategy"}
               </Button>
             </>
           )}
@@ -132,7 +180,10 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
               <div className="space-y-4">
                 <Card>
                   <CardContent className="pt-6">
-                    <h3 className="font-semibold mb-4">Strategy Analysis</h3>
+                    <h3 className="font-semibold mb-4">AI Strategy Analysis</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {analyzedStrategy.aiAnalysis?.description}
+                    </p>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="flex items-center">
@@ -177,53 +228,71 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                   className="w-full mt-4" 
                   onClick={() => setStep('recommendation')}
                 >
-                  View Recommendations
+                  View AI Recommendations
                 </Button>
               </div>
             </>
           )}
 
-          {step === 'recommendation' && (
+          {step === 'recommendation' && analyzedStrategy && (
             <>
               <p className="text-sm text-muted-foreground mb-4">
-                Based on your strategy, here are the recommended AVS protocols for restaking:
+                Based on AI analysis of your strategy, here are the recommended AVS protocols for restaking:
               </p>
               <div className="space-y-4">
-                {selectedProtocols.map((protocol, index) => (
-                  <Card key={protocol.name} className="border border-primary">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <Server className="w-5 h-5 text-primary" />
-                          <span className="font-medium">{protocol.name}</span>
+                {selectedProtocols.map((protocol, index) => {
+                  const protocolScore = analyzedStrategy.aiAnalysis?.protocolScores.find(
+                    p => p.name === protocol.name
+                  );
+
+                  return (
+                    <Card key={protocol.name} className="border border-primary">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <Server className="w-5 h-5 text-primary" />
+                            <span className="font-medium">{protocol.name}</span>
+                          </div>
+                          <div className="text-sm px-2 py-1 rounded bg-primary/10 text-primary">
+                            {index === 0 ? '50%' : index === 1 ? '30%' : '20%'} Allocation
+                          </div>
                         </div>
-                        <div className="text-sm px-2 py-1 rounded bg-primary/10 text-primary">
-                          {index === 0 ? '50%' : index === 1 ? '30%' : '20%'} Allocation
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>APY</span>
+                            <span className="text-primary">{protocol.apy.toFixed(2)}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Security Score</span>
+                            <span className="text-primary">{protocol.securityScore}/100</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Slashing Risk</span>
+                            <span className={protocol.slashingRisk > 0.05 ? 'text-destructive' : 'text-primary'}>
+                              {(protocol.slashingRisk * 100).toFixed(2)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Uptime</span>
+                            <span className="text-primary">{protocol.avgUptimePercent}%</span>
+                          </div>
+                          {protocolScore?.reasoning && (
+                            <div className="mt-4 pt-4 border-t border-border">
+                              <h4 className="font-medium mb-2">AI Reasoning:</h4>
+                              <ul className="list-disc list-inside space-y-1">
+                                {protocolScore.reasoning.map((reason, i) => (
+                                  <li key={i} className="text-muted-foreground text-sm">
+                                    {reason}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span>APY</span>
-                          <span className="text-primary">{protocol.apy.toFixed(2)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Security Score</span>
-                          <span className="text-primary">{protocol.securityScore}/100</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Slashing Risk</span>
-                          <span className={protocol.slashingRisk > 0.05 ? 'text-destructive' : 'text-primary'}>
-                            {(protocol.slashingRisk * 100).toFixed(2)}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Uptime</span>
-                          <span className="text-primary">{protocol.avgUptimePercent}%</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
               <Button 
                 className="w-full mt-4" 

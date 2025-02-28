@@ -9,6 +9,7 @@ import {
   type Protocol,
 } from "@shared/schema";
 import { defiLlama } from "./defi-llama-service";
+import { openAIService } from "./openai-service";
 
 // Function to fetch ETH price from CoinGecko
 async function fetchEthPrice() {
@@ -332,7 +333,6 @@ export async function registerRoutes(app: Express) {
 
     const protocols = await storage.getActiveProtocols();
     const ethPrice = await storage.getLatestPrice("ethereum");
-    const priceHistory = await storage.getPrices("ethereum");
     const token = await storage.getToken(vault.token);
 
     if (!token) {
@@ -349,114 +349,103 @@ export async function registerRoutes(app: Express) {
       return res.json({ message: "No compatible AVS protocols found" });
     }
 
-    // Simple strategy analysis (placeholder for LLM integration)
-    const strategyText = strategy.toLowerCase();
-    let riskMultiplier = 1;
-    let securityMultiplier = 1;
-    let yieldMultiplier = 1;
+    try {
+      // Analyze user strategy using OpenAI
+      const strategyAnalysis = await openAIService.analyzeStrategy(strategy);
+      console.log('Strategy Analysis:', strategyAnalysis);
 
-    if (strategyText.includes('conservative') || strategyText.includes('safe')) {
-      riskMultiplier = 0.5;
-      securityMultiplier = 1.5;
-      yieldMultiplier = 0.8;
-    } else if (strategyText.includes('aggressive') || strategyText.includes('high risk')) {
-      riskMultiplier = 1.5;
-      securityMultiplier = 0.8;
-      yieldMultiplier = 1.2;
-    }
+      // Score protocols using OpenAI
+      const scoredProtocols = await openAIService.scoreProtocols(compatibleAVS, strategyAnalysis);
+      console.log('Scored Protocols:', scoredProtocols.map(p => ({
+        name: p.protocol.name,
+        score: p.score
+      })));
 
-    // Enhanced scoring that considers user strategy
-    const bestProtocol = compatibleAVS.reduce((best, current) => {
-      // Base score from APY
-      let currentScore = current.apy * yieldMultiplier;
+      // Select top 3 protocols
+      const topProtocols = scoredProtocols
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map(p => p.protocol);
 
-      // Node distribution score (more nodes = better)
-      const nodeScore = Math.min(current.nodeCount / 1000, 1); // Cap at 1000 nodes
+      // If the best protocol is different from current, calculate benefits
+      const bestProtocol = topProtocols[0];
+      if (bestProtocol.name !== vault.protocol) {
+        // Calculate gas costs and benefits (existing logic remains unchanged)
+        const totalGasLimit = token.baseGasLimit + bestProtocol.gasOverhead;
+        const gasCostInGwei = totalGasLimit * 30;
+        const gasCostInEth = gasCostInGwei * 1e-9;
+        const gasCostInUsd = gasCostInEth * (ethPrice?.price || 3000);
 
-      // Slashing risk penalty (inverse relationship)
-      const slashingPenalty = (1 - (current.slashingRisk || 0)) * riskMultiplier;
+        const currentYearlyYield = vault.balance * (vault.apy / 100);
+        const newYearlyYield = vault.balance * (bestProtocol.apy / 100);
+        const yearlyBenefit = newYearlyYield - currentYearlyYield;
 
-      // Security score bonus
-      const securityBonus = ((current.securityScore || 50) / 100) * securityMultiplier;
+        // Adjust threshold based on strategy analysis
+        const minBenefitThreshold = gasCostInUsd * (
+          strategyAnalysis.riskTolerance < 0.3 ? 4 :
+          strategyAnalysis.riskTolerance > 0.7 ? 2 :
+          3 // Default moderate threshold
+        );
 
-      // Uptime score
-      const uptimeScore = ((current.avgUptimePercent || 99) / 100);
-
-      // Combine all factors
-      currentScore *= (nodeScore * slashingPenalty * securityBonus * uptimeScore);
-
-      // Calculate the same for the current best
-      let bestScore = best.apy * yieldMultiplier;
-      const bestNodeScore = Math.min(best.nodeCount / 1000, 1);
-      const bestSlashingPenalty = (1 - (best.slashingRisk || 0)) * riskMultiplier;
-      const bestSecurityBonus = ((best.securityScore || 50) / 100) * securityMultiplier;
-      const bestUptimeScore = ((best.avgUptimePercent || 99) / 100);
-      bestScore *= (bestNodeScore * bestSlashingPenalty * bestSecurityBonus * bestUptimeScore);
-
-      return currentScore > bestScore ? current : best;
-    });
-
-    if (bestProtocol.name !== vault.protocol) {
-      // Calculate total gas cost
-      const totalGasLimit = token.baseGasLimit + bestProtocol.gasOverhead;
-      const gasCostInGwei = totalGasLimit * 30; // Using fixed gas price for simplicity
-      const gasCostInEth = gasCostInGwei * 1e-9;
-      const gasCostInUsd = gasCostInEth * (ethPrice?.price || 3000);
-
-      // Calculate potential benefits
-      const currentYearlyYield = vault.balance * (vault.apy / 100);
-      const newYearlyYield = vault.balance * (bestProtocol.apy / 100);
-      const yearlyBenefit = newYearlyYield - currentYearlyYield;
-
-      // Adjust threshold based on strategy
-      const minBenefitThreshold = gasCostInUsd * (
-        strategyText.includes('conservative') ? 4 :
-        strategyText.includes('aggressive') ? 2 :
-        3 // Default moderate threshold
-      );
-
-      if (yearlyBenefit > minBenefitThreshold) {
-        const transaction = await storage.createTransaction({
-          vaultId: vault.id,
-          type: "rebalance",
-          amount: vault.balance,
-          timestamp: new Date(),
-          gasCost: gasCostInUsd,
-        });
-
-        const updatedVault = await storage.updateVault(vault.id, {
-          protocol: bestProtocol.name,
-          apy: bestProtocol.apy,
-        });
-
-        return res.json({
-          vault: updatedVault,
-          transaction,
-          analysis: {
-            strategy: strategyText,
-            currentYield: currentYearlyYield,
-            projectedYield: newYearlyYield,
+        if (yearlyBenefit > minBenefitThreshold) {
+          const transaction = await storage.createTransaction({
+            vaultId: vault.id,
+            type: "rebalance",
+            amount: vault.balance,
+            timestamp: new Date(),
             gasCost: gasCostInUsd,
-            netBenefit: yearlyBenefit - gasCostInUsd,
-            tokenType: token.type,
-            gasDetails: {
-              gasLimit: totalGasLimit,
-              gasPrice: 30,
-              costInEth: gasCostInEth,
-            },
-            protocolDetails: {
-              slashingRisk: bestProtocol.slashingRisk,
-              securityScore: bestProtocol.securityScore,
-              avgUptimePercent: bestProtocol.avgUptimePercent,
-              nodeCount: bestProtocol.nodeCount,
-              riskCategory: bestProtocol.riskCategory
-            }
-          }
-        });
-      }
-    }
+          });
 
-    return res.json({ message: "No profitable restaking opportunity found" });
+          const updatedVault = await storage.updateVault(vault.id, {
+            protocol: bestProtocol.name,
+            apy: bestProtocol.apy,
+          });
+
+          return res.json({
+            vault: updatedVault,
+            transaction,
+            analysis: {
+              strategy: strategyAnalysis.description,
+              currentYield: currentYearlyYield,
+              projectedYield: newYearlyYield,
+              gasCost: gasCostInUsd,
+              netBenefit: yearlyBenefit - gasCostInUsd,
+              tokenType: token.type,
+              scoredProtocols: scoredProtocols.slice(0, 3).map(p => ({
+                name: p.protocol.name,
+                score: p.score,
+                reasoning: p.reasoning,
+                details: {
+                  slashingRisk: p.protocol.slashingRisk,
+                  securityScore: p.protocol.securityScore,
+                  avgUptimePercent: p.protocol.avgUptimePercent,
+                  nodeCount: p.protocol.nodeCount,
+                  riskCategory: p.protocol.riskCategory
+                }
+              }))
+            }
+          });
+        }
+      }
+
+      return res.json({
+        message: "No profitable restaking opportunity found",
+        analysis: {
+          strategy: strategyAnalysis.description,
+          scoredProtocols: scoredProtocols.slice(0, 3).map(p => ({
+            name: p.protocol.name,
+            score: p.score,
+            reasoning: p.reasoning
+          }))
+        }
+      });
+    } catch (error) {
+      console.error('Error in optimize-restake:', error);
+      return res.status(500).json({
+        message: "Failed to analyze and optimize restaking strategy",
+        error: error.message
+      });
+    }
   });
 
   app.get("/api/vaults/:id/transactions", async (req, res) => {
