@@ -85,119 +85,188 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto pr-2 scroll-smooth space-y-4">
-            {step === 'input' && (
-              <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Describe your investment strategy and risk tolerance. For example:
-                  "I prefer a balanced approach with moderate risk and stable yields"
-                  or "I want aggressive growth with maximum yields"
-                </p>
-                <Textarea
-                  value={strategy}
-                  onChange={(e) => setStrategy(e.target.value)}
-                  placeholder="Enter your investment strategy..."
-                  className="min-h-[100px]"
-                />
-                <Button
-                  className="w-full mt-4"
-                  onClick={handleStrategySubmit}
-                  disabled={!strategy.trim() || loading}
-                >
-                  {loading ? "Analyzing Strategy..." : "Analyze Strategy"}
-                </Button>
-              </>
-            )}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {step === 'input' && (
+            <>
+              <p className="text-sm text-muted-foreground mb-4">
+                Describe your investment strategy and risk tolerance. For example:
+                "I prefer a balanced approach with moderate risk and stable yields"
+                or "I want aggressive growth with maximum yields"
+              </p>
+              <Textarea
+                value={strategy}
+                onChange={(e) => setStrategy(e.target.value)}
+                placeholder="Enter your investment strategy..."
+                className="min-h-[100px]"
+              />
+              <Button
+                className="w-full mt-4"
+                onClick={handleStrategySubmit}
+                disabled={!strategy.trim() || loading}
+              >
+                {loading ? "Analyzing Strategy..." : "Analyze Strategy"}
+              </Button>
+            </>
+          )}
 
-            {step === 'analysis' && analyzedStrategy && (
-              <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {analyzedStrategy.description}
-                </p>
-                <div className="space-y-4">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <h3 className="font-semibold mb-4">Strategy Analysis</h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center">
-                            <AlertTriangle className="w-4 h-4 mr-2" />
-                            Risk Tolerance
-                          </span>
-                          <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary"
-                              style={{ width: `${analyzedStrategy.riskTolerance * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center">
-                            <TrendingUp className="w-4 h-4 mr-2" />
-                            Yield Preference
-                          </span>
-                          <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary"
-                              style={{ width: `${analyzedStrategy.yieldPreference * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center">
-                            <Shield className="w-4 h-4 mr-2" />
-                            Security Preference
-                          </span>
-                          <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary"
-                              style={{ width: `${analyzedStrategy.securityPreference * 100}%` }}
-                            />
-                          </div>
+          {step === 'analysis' && analyzedStrategy && (
+            <>
+              <p className="text-sm text-muted-foreground mb-4">
+                {analyzedStrategy.description}
+              </p>
+              <div className="space-y-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <h3 className="font-semibold mb-4">Strategy Analysis</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center">
+                          <AlertTriangle className="w-4 h-4 mr-2" />
+                          Risk Tolerance
+                        </span>
+                        <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary"
+                            style={{ width: `${analyzedStrategy.riskTolerance * 100}%` }}
+                          />
                         </div>
                       </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center">
+                          <TrendingUp className="w-4 h-4 mr-2" />
+                          Yield Preference
+                        </span>
+                        <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary"
+                            style={{ width: `${analyzedStrategy.yieldPreference * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center">
+                          <Shield className="w-4 h-4 mr-2" />
+                          Security Preference
+                        </span>
+                        <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary"
+                            style={{ width: `${analyzedStrategy.securityPreference * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Button
+                  className="w-full mt-4"
+                  onClick={() => setStep('opportunities')}
+                >
+                  View Available Opportunities
+                </Button>
+              </div>
+            </>
+          )}
+
+          {step === 'opportunities' && (
+            <div className="flex flex-col h-full">
+              <p className="text-sm text-muted-foreground mb-4">
+                Available AVS opportunities based on your strategy:
+              </p>
+              <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+                {opportunities.map((opportunity) => (
+                  <Card key={opportunity.protocol.name} className="border border-muted">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Server className="w-5 h-5 text-primary" />
+                          <span className="font-medium">{opportunity.protocol.name}</span>
+                        </div>
+                        <div className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(opportunity.sentiment || 0)}`}>
+                          Sentiment: {opportunity.sentiment?.toFixed(1)}/10
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {opportunity.context}
+                      </p>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4" />
+                          <span>APY: {opportunity.protocol.apy}%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          <span>Security: {opportunity.protocol.securityScore}/100</span>
+                        </div>
+                      </div>
+                      {opportunity.analysis && (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <h4 className="font-medium mb-2">Analysis:</h4>
+                          <ul className="list-disc list-inside space-y-1">
+                            {opportunity.analysis.map((point, i) => (
+                              <li key={i} className="text-muted-foreground text-sm">
+                                {point}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
-                  <Button
-                    className="w-full mt-4"
-                    onClick={() => setStep('opportunities')}
-                  >
-                    View Available Opportunities
-                  </Button>
-                </div>
-              </>
-            )}
+                ))}
+              </div>
+              <div className="flex-none py-4 border-t bg-background">
+                <Button
+                  className="w-full"
+                  onClick={() => setStep('recommendation')}
+                >
+                  View Recommendations
+                </Button>
+              </div>
+            </div>
+          )}
 
-            {step === 'opportunities' && (
-              <div className="flex flex-col h-full">
-                <p className="text-sm text-muted-foreground mb-4 flex-none">
-                  Available AVS opportunities based on your strategy:
-                </p>
-                <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-2">
-                  {opportunities.map((opportunity) => (
-                    <Card key={opportunity.protocol.name} className="border border-muted">
+          {step === 'recommendation' && (
+            <>
+              <p className="text-sm text-muted-foreground mb-4">
+                Based on the analysis, here are your recommended AVS allocations:
+              </p>
+              <div className="space-y-4">
+                {opportunities
+                  .sort((a, b) => (b.sentiment || 0) - (a.sentiment || 0))
+                  .slice(0, 3)
+                  .map((opportunity, index) => (
+                    <Card key={opportunity.protocol.name} className="border border-primary">
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-2">
                             <Server className="w-5 h-5 text-primary" />
                             <span className="font-medium">{opportunity.protocol.name}</span>
                           </div>
-                          <div className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(opportunity.sentiment || 0)}`}>
-                            Sentiment: {opportunity.sentiment?.toFixed(1)}/10
+                          <div className="text-sm px-2 py-1 rounded bg-primary/10 text-primary">
+                            {index === 0 ? '50%' : index === 1 ? '30%' : '20%'} Allocation
                           </div>
                         </div>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          {opportunity.context}
-                        </p>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4" />
-                            <span>APY: {opportunity.protocol.apy}%</span>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Sentiment Score</span>
+                            <span className={getSentimentColor(opportunity.sentiment || 0)}>
+                              {opportunity.sentiment?.toFixed(1)}/10
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Shield className="w-4 h-4" />
-                            <span>Security: {opportunity.protocol.securityScore}/100</span>
+                          <div className="flex justify-between">
+                            <span>APY</span>
+                            <span className="text-primary">{opportunity.protocol.apy.toFixed(2)}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Security Score</span>
+                            <span className="text-primary">{opportunity.protocol.securityScore}/100</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Slashing Risk</span>
+                            <span className={opportunity.protocol.slashingRisk ? opportunity.protocol.slashingRisk > 0.05 ? 'text-destructive' : 'text-primary' : 'text-muted-foreground'}>
+                              {opportunity.protocol.slashingRisk ? (opportunity.protocol.slashingRisk * 100).toFixed(2) : 'N/A'}%
+                            </span>
                           </div>
                         </div>
                         {opportunity.analysis && (
@@ -215,89 +284,18 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                       </CardContent>
                     </Card>
                   ))}
-                </div>
-                <div className="flex-none mt-4 pt-4 border-t bg-background">
-                  <Button
-                    className="w-full"
-                    onClick={() => setStep('recommendation')}
-                  >
-                    View Recommendations
-                  </Button>
-                </div>
               </div>
-            )}
-
-            {step === 'recommendation' && (
-              <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Based on the analysis, here are your recommended AVS allocations:
-                </p>
-                <div className="space-y-4">
-                  {opportunities
-                    .sort((a, b) => (b.sentiment || 0) - (a.sentiment || 0))
-                    .slice(0, 3)
-                    .map((opportunity, index) => (
-                      <Card key={opportunity.protocol.name} className="border border-primary">
-                        <CardContent className="pt-6">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <Server className="w-5 h-5 text-primary" />
-                              <span className="font-medium">{opportunity.protocol.name}</span>
-                            </div>
-                            <div className="text-sm px-2 py-1 rounded bg-primary/10 text-primary">
-                              {index === 0 ? '50%' : index === 1 ? '30%' : '20%'} Allocation
-                            </div>
-                          </div>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span>Sentiment Score</span>
-                              <span className={getSentimentColor(opportunity.sentiment || 0)}>
-                                {opportunity.sentiment?.toFixed(1)}/10
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>APY</span>
-                              <span className="text-primary">{opportunity.protocol.apy.toFixed(2)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Security Score</span>
-                              <span className="text-primary">{opportunity.protocol.securityScore}/100</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Slashing Risk</span>
-                              <span className={opportunity.protocol.slashingRisk ? opportunity.protocol.slashingRisk > 0.05 ? 'text-destructive' : 'text-primary' : 'text-muted-foreground'}>
-                                {opportunity.protocol.slashingRisk ? (opportunity.protocol.slashingRisk * 100).toFixed(2) : 'N/A'}%
-                              </span>
-                            </div>
-                          </div>
-                          {opportunity.analysis && (
-                            <div className="mt-4 pt-4 border-t border-border">
-                              <h4 className="font-medium mb-2">Analysis:</h4>
-                              <ul className="list-disc list-inside space-y-1">
-                                {opportunity.analysis.map((point, i) => (
-                                  <li key={i} className="text-muted-foreground text-sm">
-                                    {point}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                </div>
-                <Button
-                  className="w-full mt-4"
-                  onClick={() => {
-                    onConfirm(strategy);
-                    onOpenChange(false);
-                  }}
-                >
-                  Confirm Restaking
-                </Button>
-              </>
-            )}
-          </div>
+              <Button
+                className="w-full mt-4"
+                onClick={() => {
+                  onConfirm(strategy);
+                  onOpenChange(false);
+                }}
+              >
+                Confirm Restaking
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
