@@ -483,5 +483,42 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  // Add this endpoint after the existing protocol routes
+  app.get("/api/avs-opportunities", async (req, res) => {
+    try {
+      const opportunities = openAIService.getAVSOpportunities();
+      res.json(opportunities);
+    } catch (error) {
+      console.error('Error fetching AVS opportunities:', error);
+      res.status(500).json({
+        message: "Failed to fetch AVS opportunities",
+        error: error.message
+      });
+    }
+  });
+
+  app.post("/api/avs-opportunities/analyze", async (req, res) => {
+    try {
+      const { strategy } = req.body;
+      if (!strategy) {
+        return res.status(400).json({ message: "Strategy is required" });
+      }
+
+      const strategyAnalysis = await openAIService.analyzeStrategy(strategy);
+      const analyzedOpportunities = await openAIService.analyzeAVSOpportunities(strategyAnalysis);
+
+      res.json({
+        strategy: strategyAnalysis,
+        opportunities: analyzedOpportunities
+      });
+    } catch (error) {
+      console.error('Error analyzing AVS opportunities:', error);
+      res.status(500).json({
+        message: "Failed to analyze AVS opportunities",
+        error: error.message
+      });
+    }
+  });
+
   return createServer(app);
 }
