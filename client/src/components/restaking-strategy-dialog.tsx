@@ -75,8 +75,8 @@ export function RestakingStrategyDialog({
         tokens: ["wstETH", "rETH", "cbETH"],
         description: data.strategy.description,
       });
-      console.log("Logs print");
-      console.log(data.strategy.riskTolerance);
+      console.log("Logs print")
+      console.log(data.strategy.riskTolerance)
       setOpportunities(data.opportunities);
       setStep("analysis");
     } catch (error) {
@@ -216,7 +216,7 @@ export function RestakingStrategyDialog({
                         <div
                           className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(opportunity.sentiment || 0)}`}
                         >
-                          Sentiment: {opportunity.sentiment}/10
+                          Sentiment: {opportunity.sentiment?.toFixed(1)}/10
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">
@@ -300,7 +300,7 @@ export function RestakingStrategyDialog({
                                 opportunity.sentiment || 0,
                               )}
                             >
-                              {opportunity.sentiment?.toFixed(1)}
+                              {opportunity.sentiment?.toFixed(1)}/10
                             </span>
                           </div>
                           <div className="flex justify-between">
