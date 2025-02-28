@@ -8,13 +8,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Shield,
-  Server,
-  Activity,
-  TrendingUp,
-  AlertTriangle,
-} from "lucide-react";
+import { Shield, Server, Activity, TrendingUp, AlertTriangle } from "lucide-react";
 import type { Protocol } from "@shared/schema";
 
 interface RestakingStrategyDialogProps {
@@ -35,8 +29,8 @@ type Strategy = {
 type AVSOpportunity = {
   protocol: Protocol;
   context: string;
-  sentiment?: number;
-  analysis?: string[];
+  sentiment: number;
+  analysis: string[];
 };
 
 export function RestakingStrategyDialog({
@@ -49,9 +43,7 @@ export function RestakingStrategyDialog({
     "input" | "analysis" | "opportunities" | "recommendation"
   >("input");
   const [strategy, setStrategy] = useState<string>("");
-  const [analyzedStrategy, setAnalyzedStrategy] = useState<Strategy | null>(
-    null,
-  );
+  const [analyzedStrategy, setAnalyzedStrategy] = useState<Strategy | null>(null);
   const [opportunities, setOpportunities] = useState<AVSOpportunity[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -67,6 +59,7 @@ export function RestakingStrategyDialog({
       });
 
       const data = await analysisResponse.json();
+      console.log("Analysis response:", data); // Debug log
 
       setAnalyzedStrategy({
         riskTolerance: data.strategy.riskTolerance,
@@ -75,10 +68,18 @@ export function RestakingStrategyDialog({
         tokens: ["wstETH", "rETH", "cbETH"],
         description: data.strategy.description,
       });
-      console.log("Logs print")
-      console.log(data.strategy.riskTolerance)
-      setOpportunities(data.opportunities);
+
+      // Ensure opportunities have sentiment scores
+      const processedOpportunities = data.opportunities.map((opp: AVSOpportunity) => ({
+        ...opp,
+        sentiment: opp.sentiment || 5, // Default to neutral if missing
+        analysis: opp.analysis || []
+      }));
+
+      console.log("Processed opportunities:", processedOpportunities); // Debug log
+      setOpportunities(processedOpportunities);
       setStep("analysis");
+
     } catch (error) {
       console.error("Error analyzing strategy:", error);
     } finally {
@@ -109,9 +110,9 @@ export function RestakingStrategyDialog({
           {step === "input" && (
             <>
               <p className="text-sm text-muted-foreground mb-4">
-                Describe your investment strategy and risk tolerance. For
-                example: "I prefer a balanced approach with moderate risk and
-                stable yields" or "I want aggressive growth with maximum yields"
+                Describe your investment strategy and risk tolerance. For example:
+                "I prefer a balanced approach with moderate risk and stable yields"
+                or "I want aggressive growth with maximum yields"
               </p>
               <Textarea
                 value={strategy}
@@ -148,7 +149,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.riskTolerance * 100}%`,
+                              width: `${(analyzedStrategy.riskTolerance / 10) * 100}%`,
                             }}
                           />
                         </div>
@@ -162,7 +163,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.yieldPreference * 100}%`,
+                              width: `${(analyzedStrategy.yieldPreference / 10) * 100}%`,
                             }}
                           />
                         </div>
@@ -176,7 +177,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.securityPreference * 100}%`,
+                              width: `${(analyzedStrategy.securityPreference / 10) * 100}%`,
                             }}
                           />
                         </div>
@@ -201,10 +202,7 @@ export function RestakingStrategyDialog({
               </p>
               <div className="flex-1 overflow-y-auto space-y-4 mb-4">
                 {opportunities.map((opportunity) => (
-                  <Card
-                    key={opportunity.protocol.name}
-                    className="border border-muted"
-                  >
+                  <Card key={opportunity.protocol.name} className="border border-muted">
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
@@ -214,9 +212,11 @@ export function RestakingStrategyDialog({
                           </span>
                         </div>
                         <div
-                          className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(opportunity.sentiment || 0)}`}
+                          className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(
+                            opportunity.sentiment
+                          )}`}
                         >
-                          Sentiment: {opportunity.sentiment?.toFixed(1)}/10
+                          Sentiment: {opportunity.sentiment.toFixed(1)}/10
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">
@@ -239,10 +239,7 @@ export function RestakingStrategyDialog({
                           <h4 className="font-medium mb-2">Analysis:</h4>
                           <ul className="list-disc list-inside space-y-1">
                             {opportunity.analysis.map((point, i) => (
-                              <li
-                                key={i}
-                                className="text-muted-foreground text-sm"
-                              >
+                              <li key={i} className="text-muted-foreground text-sm">
                                 {point}
                               </li>
                             ))}
@@ -254,10 +251,7 @@ export function RestakingStrategyDialog({
                 ))}
               </div>
               <div className="flex-none py-4 border-t bg-background">
-                <Button
-                  className="w-full"
-                  onClick={() => setStep("recommendation")}
-                >
+                <Button className="w-full" onClick={() => setStep("recommendation")}>
                   View Recommendations
                 </Button>
               </div>
@@ -267,12 +261,11 @@ export function RestakingStrategyDialog({
           {step === "recommendation" && (
             <>
               <p className="text-sm text-muted-foreground mb-4">
-                Based on the analysis, here are your recommended AVS
-                allocations:
+                Based on the analysis, here are your recommended AVS allocations:
               </p>
               <div className="space-y-4">
                 {opportunities
-                  .sort((a, b) => (b.sentiment || 0) - (a.sentiment || 0))
+                  .sort((a, b) => b.sentiment - a.sentiment)
                   .slice(0, 3)
                   .map((opportunity, index) => (
                     <Card
@@ -296,11 +289,9 @@ export function RestakingStrategyDialog({
                           <div className="flex justify-between">
                             <span>Sentiment Score</span>
                             <span
-                              className={getSentimentColor(
-                                opportunity.sentiment || 0,
-                              )}
+                              className={getSentimentColor(opportunity.sentiment)}
                             >
-                              {opportunity.sentiment?.toFixed(1)}/10
+                              {opportunity.sentiment.toFixed(1)}/10
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -327,9 +318,7 @@ export function RestakingStrategyDialog({
                               }
                             >
                               {opportunity.protocol.slashingRisk
-                                ? (
-                                    opportunity.protocol.slashingRisk * 100
-                                  ).toFixed(2)
+                                ? (opportunity.protocol.slashingRisk * 100).toFixed(2)
                                 : "N/A"}
                               %
                             </span>

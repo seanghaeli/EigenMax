@@ -81,19 +81,18 @@ export class OpenAIService {
           {
             role: "system",
             content: `You are an expert in DeFi investment strategies and risk analysis. 
-            Analyze the given investment strategy text and provide scores in a JSON object.
-            Evaluate risk tolerance, yield preference, and security preference on a scale of 0-10.
-            Format your response as a JSON:
+            Analyze the given investment strategy text and provide scores as a JSON object.
+            Format your response as:
             {
-              "riskTolerance": [0-10],
-              "yieldPreference": [0-10],
-              "securityPreference": [0-10],
+              "riskTolerance": [value between 0-1],
+              "yieldPreference": [value between 0-1],
+              "securityPreference": [value between 0-1],
               "description": "Brief summary of the strategy"
             }`,
           },
           {
             role: "user",
-            content: `Analyze this investment strategy and return a JSON object with scores between 0 and 10: "${strategyText}"`,
+            content: `Analyze this investment strategy and return a JSON object with numerical scores between 0 and 1 for Risk Tolerance, Yield Preference, and Security Preference, plus a brief description: "${strategyText}"`,
           },
         ],
         response_format: { type: "json_object" },
@@ -107,17 +106,23 @@ export class OpenAIService {
       console.log("Parsed result:", result);
 
       return {
-        riskTolerance: Math.max(0, Math.min(10, result.riskTolerance || 5)),
-        yieldPreference: Math.max(0, Math.min(10, result.yieldPreference || 5)),
-        securityPreference: Math.max(0, Math.min(10, result.securityPreference || 5)),
+        riskTolerance: Math.max(0, Math.min(1, result.riskTolerance || 0.5)),
+        yieldPreference: Math.max(
+          0,
+          Math.min(1, result.yieldPreference || 0.5),
+        ),
+        securityPreference: Math.max(
+          0,
+          Math.min(1, result.securityPreference || 0.5),
+        ),
         description: result.description || "Strategy analysis",
       };
     } catch (error) {
       console.error("OpenAI strategy analysis failed:", error);
       return {
-        riskTolerance: 5,
-        yieldPreference: 5,
-        securityPreference: 5,
+        riskTolerance: 0.5,
+        yieldPreference: 0.5,
+        securityPreference: 0.5,
         description: "Using default balanced strategy due to analysis error",
       };
     }
@@ -125,7 +130,6 @@ export class OpenAIService {
 
   async analyzeAVSOpportunities(
     strategyAnalysis: StrategyAnalysis,
-    strategyText: string,
   ): Promise<AVSOpportunity[]> {
     const opportunities = [...AVS_OPPORTUNITIES];
 
@@ -137,22 +141,14 @@ export class OpenAIService {
             {
               role: "system",
               content: `You are an expert in evaluating DeFi protocols, particularly AVS opportunities.
-              The user's investment strategy is: "${strategyText}"
+              Given a user's investment preferences:
+              - Risk Tolerance: ${strategyAnalysis.riskTolerance}
+              - Yield Preference: ${strategyAnalysis.yieldPreference}
+              - Security Preference: ${strategyAnalysis.securityPreference}
 
-              Their preferences based on analysis:
-              - Risk Tolerance: ${strategyAnalysis.riskTolerance}/10
-              - Yield Preference: ${strategyAnalysis.yieldPreference}/10
-              - Security Preference: ${strategyAnalysis.securityPreference}/10
-
-              Analyze this AVS opportunity and provide:
-              1. A sentiment score (0-10) indicating how well it matches the user's preferences and strategy
-              2. A list of key points explaining why this opportunity aligns or doesn't align with their strategy
-
-              Format your response as a JSON:
-              {
-                "sentiment": [0-10],
-                "analysis": ["point 1", "point 2", ...]
-              }`,
+              Analyze this AVS opportunity and provide in JSON:
+              1. "sentiment": A sentiment score (0-10) indicating how well it matches the user's preferences
+              2. "analysis": A list of key points supporting your score`,
             },
             {
               role: "user",
@@ -170,7 +166,12 @@ export class OpenAIService {
         });
 
         const result = JSON.parse(response.choices[0].message.content);
-        opportunity.sentiment = Math.max(0, Math.min(10, result.sentiment));
+        console.log(result);
+        console.log("debug state");
+        opportunity.sentiment = Math.max(
+          0,
+          Math.min(10, result.sentiment_score),
+        );
         opportunity.analysis = result.analysis;
       } catch (error) {
         console.error(`Failed to analyze ${opportunity.protocol.name}:`, error);
@@ -192,11 +193,11 @@ export class OpenAIService {
         messages: [
           {
             role: "system",
-            content: `You are an expert in evaluating DeFi protocols, particularly AVS protocols.
-            Score each protocol based on the user's strategy preferences:
-            - Risk Tolerance: ${strategy.riskTolerance}/10
-            - Yield Preference: ${strategy.yieldPreference}/10
-            - Security Preference: ${strategy.securityPreference}/10
+            content: `You are an expert in evaluating DeFi protocols, particularly AVS (Active Validator Set) protocols.
+            Score in JSON each protocol based on the user's strategy preferences:
+            - Risk Tolerance: ${strategy.riskTolerance}
+            - Yield Preference: ${strategy.yieldPreference}
+            - Security Preference: ${strategy.securityPreference}
 
             Consider these factors:
             1. APY relative to risk
@@ -204,11 +205,7 @@ export class OpenAIService {
             3. Historical performance and stability
             4. Node count and decentralization
             5. Slashing risk vs rewards
-            6. Protocol uptime and reliability
-
-            For each protocol, provide:
-            1. A score between 0 and 1
-            2. A list of reasons supporting the score`,
+            6. Protocol uptime and reliability`,
           },
           {
             role: "user",
@@ -219,14 +216,14 @@ export class OpenAIService {
       });
 
       const result = JSON.parse(response.choices[0].message.content);
-      return protocols.map(protocol => ({
+      return protocols.map((protocol) => ({
         protocol,
         score: Math.max(0, Math.min(1, result[protocol.id].score)),
         reasoning: result[protocol.id].reasons,
       }));
     } catch (error) {
       console.error("OpenAI protocol scoring failed:", error);
-      return protocols.map(protocol => ({
+      return protocols.map((protocol) => ({
         protocol,
         score: this.calculateBasicScore(protocol, strategy),
         reasoning: [
@@ -242,15 +239,16 @@ export class OpenAIService {
   ): number {
     const slashingPenalty = 1 - (protocol.slashingRisk || 0);
     const securityBonus = ((protocol.securityScore || 50) / 100) * 1.5;
-    const uptimeBonus = ((protocol.avgUptimePercent || 99) / 100);
+    const uptimeBonus = (protocol.avgUptimePercent || 99) / 100;
     const nodeScore = Math.min((protocol.nodeCount || 0) / 1000, 1);
 
     return (
-      (protocol.apy / 100) * (strategy.yieldPreference / 10) +
-      slashingPenalty * (1 - strategy.riskTolerance / 10) +
-      securityBonus * (strategy.securityPreference / 10) +
-      (uptimeBonus + nodeScore) / 2
-    ) / 4;
+      ((protocol.apy / 100) * strategy.yieldPreference +
+        slashingPenalty * (1 - strategy.riskTolerance) +
+        securityBonus * strategy.securityPreference +
+        (uptimeBonus + nodeScore) / 2) /
+      4
+    );
   }
 
   getAVSOpportunities(): AVSOpportunity[] {
