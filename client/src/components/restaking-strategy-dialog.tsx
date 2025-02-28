@@ -70,18 +70,17 @@ export function RestakingStrategyDialog({
 
       const data = await analysisResponse.json();
 
-      // Transform the values from 0-10 scale to 0-1 scale
       setAnalyzedStrategy({
-        riskTolerance: data.strategy.riskTolerance / 10,
-        yieldPreference: data.strategy.yieldPreference / 10,
-        securityPreference: data.strategy.securityPreference / 10,
+        riskTolerance: data.strategy.riskTolerance,
+        yieldPreference: data.strategy.yieldPreference,
+        securityPreference: data.strategy.securityPreference,
         tokens: ["wstETH", "rETH", "cbETH"],
         description: data.strategy.description,
       });
-
+      console.log("Logs print")
+      console.log(data.strategy.riskTolerance)
       setOpportunities(data.opportunities);
       setStep("analysis");
-
     } catch (error) {
       console.error("Error analyzing strategy:", error);
     } finally {
@@ -151,7 +150,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.riskTolerance * 100}%`,
+                              width: `${analyzedStrategy.riskTolerance * 10}%`,
                             }}
                           />
                         </div>
@@ -165,7 +164,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.yieldPreference * 100}%`,
+                              width: `${analyzedStrategy.yieldPreference * 10}%`,
                             }}
                           />
                         </div>
@@ -179,7 +178,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.securityPreference * 100}%`,
+                              width: `${analyzedStrategy.securityPreference * 10}%`,
                             }}
                           />
                         </div>
