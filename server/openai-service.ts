@@ -81,26 +81,35 @@ export class OpenAIService {
           {
             role: "system",
             content: `You are an expert in DeFi investment strategies and risk analysis. 
-            Analyze the given investment strategy text and provide scores for different aspects.
-            Consider words and phrases that indicate risk tolerance, yield preferences, and security focus.`,
+            Analyze the given investment strategy text and provide scores as a JSON object.
+            Format your response as:
+            {
+              "riskTolerance": [value between 0-1],
+              "yieldPreference": [value between 0-1],
+              "securityPreference": [value between 0-1],
+              "description": "Brief summary of the strategy"
+            }`,
           },
           {
             role: "user",
-            content: `Analyze this investment strategy and respond with just the scores out of 10 for Risk Tolerance, Yield Preference, and Security Preference in JSON: "${strategyText}"`,
+            content: `Analyze this investment strategy and return a JSON object with numerical scores between 0 and 1 for Risk Tolerance, Yield Preference, and Security Preference, plus a brief description: "${strategyText}"`,
           },
         ],
         response_format: { type: "json_object" },
       });
 
-      console.log(response.choices);
-      console.log("Hey there");
-      const result = JSON.parse(response.choices[0].message.content);
-      console.log(result)
+      console.log("OpenAI response received:");
+      const content = response.choices[0].message.content;
+      console.log(content);
+      
+      const result = JSON.parse(content);
+      console.log("Parsed result:", result);
+      
       return {
-        riskTolerance: Math.max(0, Math.min(1, result.riskTolerance)),
-        yieldPreference: Math.max(0, Math.min(1, result.yieldPreference)),
-        securityPreference: Math.max(0, Math.min(1, result.securityPreference)),
-        description: result.description,
+        riskTolerance: Math.max(0, Math.min(1, result.riskTolerance || 0.5)),
+        yieldPreference: Math.max(0, Math.min(1, result.yieldPreference || 0.5)),
+        securityPreference: Math.max(0, Math.min(1, result.securityPreference || 0.5)),
+        description: result.description || "Strategy analysis",
       };
     } catch (error) {
       console.error("OpenAI strategy analysis failed:", error);
