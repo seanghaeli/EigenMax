@@ -120,3 +120,20 @@ async function createDelegateOperatorTx(operatorAddress) {
     console.error("Restaking process failed:", error.message);
   }
 })();
+import axios from 'axios';
+
+// Functions for restaking operations
+export async function analyzeRestakingStrategy(strategy) {
+  const response = await axios.post('/api/avs-opportunities/analyze', { strategy });
+  return response.data;
+}
+
+export async function getAVSOpportunities() {
+  const response = await axios.get('/api/avs-opportunities');
+  return response.data;
+}
+
+export async function executeRestaking(strategy, protocols) {
+  const response = await axios.post('/api/restake', { strategy, protocols });
+  return response.data;
+}
