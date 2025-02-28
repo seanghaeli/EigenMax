@@ -25,7 +25,6 @@ EigenStake is a platform that helps Ethereum holders optimize their staking and 
 ### Wallet Integration
 - **Position Analysis**: View and analyze your current Ethereum positions.
 - **Transaction Verification**: Secure transaction verification through EigenLayer.
-- **Historical Performance**: Track and review past transactions and performance.
 
 ## Technical Architecture
 
@@ -33,9 +32,10 @@ EigenStake is a platform that helps Ethereum holders optimize their staking and 
 - **Backend**: Node.js with Express
 - **AI Integration**: OpenAI's GPT models for strategy analysis
 - **Data Sources**: DeFi Llama API for real-time protocol metrics
-- **Blockchain Integration**: Ethers.js for on-chain interactions
+- **Blockchain Integration**: P2P restaking protocol to fulfill restakes.
 
 ## Getting Started
+
 
 1. Clone the repository
 2. Run `npm install` to install dependencies
