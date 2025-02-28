@@ -18,21 +18,21 @@ type Strategy = {
   yieldPreference: number;
   securityPreference: number;
   tokens: string[];
-  aiAnalysis?: {
-    description: string;
-    protocolScores: Array<{
-      name: string;
-      score: number;
-      reasoning: string[];
-    }>;
-  };
+  description?: string;
+};
+
+type AVSOpportunity = {
+  protocol: Protocol;
+  context: string;
+  sentiment?: number;
+  analysis?: string[];
 };
 
 export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfirm }: RestakingStrategyDialogProps) {
-  const [step, setStep] = useState<'input' | 'analysis' | 'recommendation'>('input');
+  const [step, setStep] = useState<'input' | 'opportunities' | 'analysis' | 'recommendation'>('input');
   const [strategy, setStrategy] = useState<string>('');
   const [analyzedStrategy, setAnalyzedStrategy] = useState<Strategy | null>(null);
-  const [selectedProtocols, setSelectedProtocols] = useState<Protocol[]>([]);
+  const [opportunities, setOpportunities] = useState<AVSOpportunity[]>([]);
   const [loading, setLoading] = useState(false);
 
   const avsProtocols = protocols.filter(p => p.type === 'avs');
@@ -40,105 +40,44 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
   const handleStrategySubmit = async () => {
     setLoading(true);
     try {
-      // Call the optimize-restake endpoint
-      const response = await fetch('/api/vaults/1/optimize-restake', {
+      // First get the opportunities
+      const opportunitiesResponse = await fetch('/api/avs-opportunities');
+      const initialOpportunities = await opportunitiesResponse.json();
+      setOpportunities(initialOpportunities);
+      setStep('opportunities');
+
+      // Then analyze them based on the strategy
+      const analysisResponse = await fetch('/api/avs-opportunities/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ strategy })
       });
 
-      const data = await response.json();
+      const data = await analysisResponse.json();
 
-      if (data.analysis) {
-        setAnalyzedStrategy({
-          riskTolerance: data.analysis.scoredProtocols[0]?.score || 0.5,
-          yieldPreference: data.analysis.scoredProtocols[0]?.score || 0.5,
-          securityPreference: data.analysis.scoredProtocols[0]?.score || 0.5,
-          tokens: ['wstETH', 'rETH', 'cbETH'],
-          aiAnalysis: {
-            description: data.analysis.strategy,
-            protocolScores: data.analysis.scoredProtocols
-          }
-        });
+      setAnalyzedStrategy({
+        riskTolerance: data.strategy.riskTolerance,
+        yieldPreference: data.strategy.yieldPreference,
+        securityPreference: data.strategy.securityPreference,
+        tokens: ['wstETH', 'rETH', 'cbETH'],
+        description: data.strategy.description
+      });
 
-        // Find and set the selected protocols based on the scores
-        const selectedProtocolNames = data.analysis.scoredProtocols.map(p => p.name);
-        const matchedProtocols = avsProtocols.filter(p => 
-          selectedProtocolNames.includes(p.name)
-        );
-        setSelectedProtocols(matchedProtocols);
-      }
+      setOpportunities(data.opportunities);
 
-      setStep('analysis');
     } catch (error) {
-      console.error('Error analyzing strategy:', error);
-      // Fallback to basic analysis if AI fails
-      const analysis = analyzeStrategy(strategy);
-      setAnalyzedStrategy(analysis);
-      matchProtocols(analysis);
-      setStep('analysis');
+      console.error('Error analyzing opportunities:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const analyzeStrategy = (strategyText: string): Strategy => {
-    // Simple sentiment analysis (placeholder for LLM integration)
-    const riskKeywords = {
-      high: ['aggressive', 'high risk', 'maximum yield', 'growth'],
-      moderate: ['balanced', 'moderate', 'mixed'],
-      low: ['conservative', 'safe', 'stable', 'minimum risk']
-    };
-
-    const text = strategyText.toLowerCase();
-    let riskTolerance = 0.5; // Default moderate
-    let yieldPreference = 0.5;
-    let securityPreference = 0.5;
-
-    // Analyze risk tolerance
-    if (riskKeywords.high.some(word => text.includes(word))) {
-      riskTolerance = 0.8;
-      yieldPreference = 0.7;
-      securityPreference = 0.3;
-    } else if (riskKeywords.low.some(word => text.includes(word))) {
-      riskTolerance = 0.2;
-      yieldPreference = 0.3;
-      securityPreference = 0.8;
-    }
-
-    return {
-      riskTolerance,
-      yieldPreference,
-      securityPreference,
-      tokens: ['wstETH', 'rETH', 'cbETH']
-    };
+  const getSentimentColor = (sentiment: number) => {
+    if (sentiment >= 8) return 'text-green-500';
+    if (sentiment >= 6) return 'text-blue-500';
+    if (sentiment >= 4) return 'text-yellow-500';
+    return 'text-red-500';
   };
-
-  const matchProtocols = (userStrategy: Strategy) => {
-    const scoredProtocols = avsProtocols.map(protocol => {
-      const yieldScore = protocol.apy / Math.max(...avsProtocols.map(p => p.apy));
-      const securityScore = (protocol.securityScore || 50) / 100;
-      const riskScore = 1 - (protocol.slashingRisk || 0);
-      const uptimeScore = (protocol.avgUptimePercent || 99) / 100;
-
-      const totalScore = (
-        yieldScore * userStrategy.yieldPreference +
-        securityScore * userStrategy.securityPreference +
-        riskScore * (1 - userStrategy.riskTolerance) +
-        uptimeScore
-      ) / 4;
-
-      return { protocol, score: totalScore };
-    });
-
-    const sortedProtocols = scoredProtocols
-      .sort((a, b) => b.score - a.score)
-      .map(({ protocol }) => protocol)
-      .slice(0, 3);
-
-    setSelectedProtocols(sortedProtocols);
-  };
-
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -146,6 +85,7 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
         <DialogHeader>
           <DialogTitle>
             {step === 'input' && "Define Your Restaking Strategy"}
+            {step === 'opportunities' && "Available AVS Opportunities"}
             {step === 'analysis' && "AI Analysis of Your Strategy"}
             {step === 'recommendation' && "AI-Recommended Allocation"}
           </DialogTitle>
@@ -175,15 +115,78 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
             </>
           )}
 
+          {step === 'opportunities' && (
+            <>
+              <p className="text-sm text-muted-foreground mb-4">
+                Analyzing these AVS opportunities based on your strategy:
+              </p>
+              <div className="space-y-4">
+                {opportunities.map((opportunity) => (
+                  <Card key={opportunity.protocol.name} className="border border-muted">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Server className="w-5 h-5 text-primary" />
+                          <span className="font-medium">{opportunity.protocol.name}</span>
+                        </div>
+                        {opportunity.sentiment ? (
+                          <div className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(opportunity.sentiment)}`}>
+                            Sentiment: {opportunity.sentiment.toFixed(1)}/10
+                          </div>
+                        ) : (
+                          <div className="text-sm px-2 py-1 rounded bg-muted animate-pulse">
+                            Analyzing...
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {opportunity.context}
+                      </p>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4" />
+                          <span>APY: {opportunity.protocol.apy}%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          <span>Security: {opportunity.protocol.securityScore}/100</span>
+                        </div>
+                      </div>
+                      {opportunity.analysis && (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <h4 className="font-medium mb-2">Analysis:</h4>
+                          <ul className="list-disc list-inside space-y-1">
+                            {opportunity.analysis.map((point, i) => (
+                              <li key={i} className="text-muted-foreground text-sm">
+                                {point}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <Button 
+                className="w-full mt-4" 
+                onClick={() => setStep('analysis')}
+                disabled={loading}
+              >
+                Continue to Analysis
+              </Button>
+            </>
+          )}
+
           {step === 'analysis' && analyzedStrategy && (
             <>
+              <p className="text-sm text-muted-foreground mb-4">
+                {analyzedStrategy.description}
+              </p>
               <div className="space-y-4">
                 <Card>
                   <CardContent className="pt-6">
-                    <h3 className="font-semibold mb-4">AI Strategy Analysis</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {analyzedStrategy.aiAnalysis?.description}
-                    </p>
+                    <h3 className="font-semibold mb-4">Strategy Analysis</h3>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="flex items-center">
@@ -228,30 +231,28 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                   className="w-full mt-4" 
                   onClick={() => setStep('recommendation')}
                 >
-                  View AI Recommendations
+                  View Recommendations
                 </Button>
               </div>
             </>
           )}
 
-          {step === 'recommendation' && analyzedStrategy && (
+          {step === 'recommendation' && (
             <>
               <p className="text-sm text-muted-foreground mb-4">
-                Based on AI analysis of your strategy, here are the recommended AVS protocols for restaking:
+                Based on the analysis, here are your recommended AVS allocations:
               </p>
               <div className="space-y-4">
-                {selectedProtocols.map((protocol, index) => {
-                  const protocolScore = analyzedStrategy.aiAnalysis?.protocolScores.find(
-                    p => p.name === protocol.name
-                  );
-
-                  return (
-                    <Card key={protocol.name} className="border border-primary">
+                {opportunities
+                  .sort((a, b) => (b.sentiment || 0) - (a.sentiment || 0))
+                  .slice(0, 3)
+                  .map((opportunity, index) => (
+                    <Card key={opportunity.protocol.name} className="border border-primary">
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-2">
                             <Server className="w-5 h-5 text-primary" />
-                            <span className="font-medium">{protocol.name}</span>
+                            <span className="font-medium">{opportunity.protocol.name}</span>
                           </div>
                           <div className="text-sm px-2 py-1 rounded bg-primary/10 text-primary">
                             {index === 0 ? '50%' : index === 1 ? '30%' : '20%'} Allocation
@@ -259,40 +260,41 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                         </div>
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
-                            <span>APY</span>
-                            <span className="text-primary">{protocol.apy.toFixed(2)}%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Security Score</span>
-                            <span className="text-primary">{protocol.securityScore}/100</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Slashing Risk</span>
-                            <span className={protocol.slashingRisk > 0.05 ? 'text-destructive' : 'text-primary'}>
-                              {(protocol.slashingRisk * 100).toFixed(2)}%
+                            <span>Sentiment Score</span>
+                            <span className={getSentimentColor(opportunity.sentiment || 0)}>
+                              {opportunity.sentiment?.toFixed(1)}/10
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Uptime</span>
-                            <span className="text-primary">{protocol.avgUptimePercent}%</span>
+                            <span>APY</span>
+                            <span className="text-primary">{opportunity.protocol.apy.toFixed(2)}%</span>
                           </div>
-                          {protocolScore?.reasoning && (
-                            <div className="mt-4 pt-4 border-t border-border">
-                              <h4 className="font-medium mb-2">AI Reasoning:</h4>
-                              <ul className="list-disc list-inside space-y-1">
-                                {protocolScore.reasoning.map((reason, i) => (
-                                  <li key={i} className="text-muted-foreground text-sm">
-                                    {reason}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
+                          <div className="flex justify-between">
+                            <span>Security Score</span>
+                            <span className="text-primary">{opportunity.protocol.securityScore}/100</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Slashing Risk</span>
+                            <span className={opportunity.protocol.slashingRisk > 0.05 ? 'text-destructive' : 'text-primary'}>
+                              {(opportunity.protocol.slashingRisk * 100).toFixed(2)}%
+                            </span>
+                          </div>
                         </div>
+                        {opportunity.analysis && (
+                          <div className="mt-4 pt-4 border-t border-border">
+                            <h4 className="font-medium mb-2">Analysis:</h4>
+                            <ul className="list-disc list-inside space-y-1">
+                              {opportunity.analysis.map((point, i) => (
+                                <li key={i} className="text-muted-foreground text-sm">
+                                  {point}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
-                  );
-                })}
+                  ))}
               </div>
               <Button 
                 className="w-full mt-4" 
