@@ -174,7 +174,7 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                 <p className="text-sm text-muted-foreground mb-4 flex-none">
                   Available AVS opportunities based on your strategy:
                 </p>
-                <div className="flex-1 overflow-y-auto pr-2 space-y-4 pb-16">
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-2">
                   {opportunities.map((opportunity) => (
                     <Card key={opportunity.protocol.name} className="border border-muted">
                       <CardContent className="pt-6">
@@ -216,7 +216,7 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                     </Card>
                   ))}
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-background border-t">
+                <div className="flex-none mt-4 pt-4 border-t bg-background">
                   <Button
                     className="w-full"
                     onClick={() => setStep('recommendation')}
