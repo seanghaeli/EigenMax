@@ -1,9 +1,9 @@
 
-# EigenStake: Ethereum AVS Restaking Platform
+# EigenMax: Ethereum AVS Restaking Platform
 
 ## Overview
 
-EigenStake is a platform that helps Ethereum holders optimize their staking and restaking strategies by analyzing various Actively Validated Services (AVS) protocols. The application uses AI-powered analysis to match user preferences with the most suitable AVS opportunities.
+EigenMax is a platform that helps Ethereum holders optimize their staking and restaking strategies by analyzing various Actively Validated Services (AVS) protocols. The application uses AI-powered analysis to match user preferences with the most suitable AVS opportunities.
 
 ## Features
 
