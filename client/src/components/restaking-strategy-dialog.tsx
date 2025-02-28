@@ -8,13 +8,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Shield,
-  Server,
-  Activity,
-  TrendingUp,
-  AlertTriangle,
-} from "lucide-react";
+import { Shield, Server, Activity, TrendingUp, AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { executeRestake } from "@/lib/restake";
 import type { Protocol } from "@shared/schema";
 
 interface RestakingStrategyDialogProps {
@@ -54,6 +50,8 @@ export function RestakingStrategyDialog({
   );
   const [opportunities, setOpportunities] = useState<AVSOpportunity[]>([]);
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const [isRestaking, setIsRestaking] = useState(false);
 
   const avsProtocols = protocols.filter((p) => p.type === "avs");
 
@@ -75,8 +73,8 @@ export function RestakingStrategyDialog({
         tokens: ["wstETH", "rETH", "cbETH"],
         description: data.strategy.description,
       });
-      console.log("Logs print")
-      console.log(data.strategy.riskTolerance)
+      console.log("Logs print");
+      console.log(data.strategy.riskTolerance);
       setOpportunities(data.opportunities);
       setStep("analysis");
     } catch (error) {
@@ -91,6 +89,42 @@ export function RestakingStrategyDialog({
     if (sentiment >= 6) return "text-blue-500";
     if (sentiment >= 4) return "text-yellow-500";
     return "text-red-500";
+  };
+
+  const handleRestake = async () => {
+    setIsRestaking(true);
+    try {
+      const selectedProtocols = opportunities
+        .sort((a, b) => (b.sentiment || 0) - (a.sentiment || 0))
+        .slice(0, 3)
+        .map((o) => o.protocol);
+
+      const result = await executeRestake(strategy, selectedProtocols);
+
+      if (result.success) {
+        toast({
+          title: "Restaking Successful",
+          description: result.message,
+        });
+        onConfirm(strategy);
+        onOpenChange(false);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Restaking Failed",
+          description: result.message,
+        });
+      }
+    } catch (error) {
+      console.error("Error during restaking:", error);
+      toast({
+        variant: "destructive",
+        title: "Restaking Failed",
+        description: "An unexpected error occurred during restaking.",
+      });
+    } finally {
+      setIsRestaking(false);
+    }
   };
 
   return (
@@ -148,7 +182,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.riskTolerance * 100}%`,
+                              width: `${analyzedStrategy.riskTolerance * 10}%`,
                             }}
                           />
                         </div>
@@ -162,7 +196,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.yieldPreference * 100}%`,
+                              width: `${analyzedStrategy.yieldPreference * 10}%`,
                             }}
                           />
                         </div>
@@ -176,7 +210,7 @@ export function RestakingStrategyDialog({
                           <div
                             className="h-full bg-primary"
                             style={{
-                              width: `${analyzedStrategy.securityPreference * 100}%`,
+                              width: `${analyzedStrategy.securityPreference * 10}%`,
                             }}
                           />
                         </div>
@@ -214,7 +248,9 @@ export function RestakingStrategyDialog({
                           </span>
                         </div>
                         <div
-                          className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(opportunity.sentiment || 0)}`}
+                          className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(
+                            opportunity.sentiment || 0,
+                          )}`}
                         >
                           Sentiment: {opportunity.sentiment?.toFixed(1)}/10
                         </div>
@@ -288,7 +324,11 @@ export function RestakingStrategyDialog({
                             </span>
                           </div>
                           <div className="text-sm px-2 py-1 rounded bg-primary/10 text-primary">
-                            {index === 0 ? "50%" : index === 1 ? "30%" : "20%"}{" "}
+                            {index === 0
+                              ? "50%"
+                              : index === 1
+                              ? "30%"
+                              : "20%"}
                             Allocation
                           </div>
                         </div>
@@ -356,12 +396,10 @@ export function RestakingStrategyDialog({
               </div>
               <Button
                 className="w-full mt-4"
-                onClick={() => {
-                  onConfirm(strategy);
-                  onOpenChange(false);
-                }}
+                onClick={handleRestake}
+                disabled={isRestaking}
               >
-                Confirm Restaking
+                {isRestaking ? "Restaking..." : "Confirm Restaking"}
               </Button>
             </>
           )}
