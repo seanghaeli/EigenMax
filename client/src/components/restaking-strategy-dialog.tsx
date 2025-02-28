@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Shield, Server, Activity, Zap, TrendingUp, AlertTriangle } from "lucide-react";
+import { Shield, Server, Activity, TrendingUp, AlertTriangle } from "lucide-react";
 import type { Protocol } from "@shared/schema";
 
 interface RestakingStrategyDialogProps {
@@ -29,7 +29,7 @@ type AVSOpportunity = {
 };
 
 export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfirm }: RestakingStrategyDialogProps) {
-  const [step, setStep] = useState<'input' | 'opportunities' | 'analysis' | 'recommendation'>('input');
+  const [step, setStep] = useState<'input' | 'analysis' | 'opportunities' | 'recommendation'>('input');
   const [strategy, setStrategy] = useState<string>('');
   const [analyzedStrategy, setAnalyzedStrategy] = useState<Strategy | null>(null);
   const [opportunities, setOpportunities] = useState<AVSOpportunity[]>([]);
@@ -40,13 +40,7 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
   const handleStrategySubmit = async () => {
     setLoading(true);
     try {
-      // First get the opportunities
-      const opportunitiesResponse = await fetch('/api/avs-opportunities');
-      const initialOpportunities = await opportunitiesResponse.json();
-      setOpportunities(initialOpportunities);
-      setStep('opportunities');
-
-      // Then analyze them based on the strategy
+      // First analyze the strategy
       const analysisResponse = await fetch('/api/avs-opportunities/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,9 +58,10 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
       });
 
       setOpportunities(data.opportunities);
+      setStep('analysis');
 
     } catch (error) {
-      console.error('Error analyzing opportunities:', error);
+      console.error('Error analyzing strategy:', error);
     } finally {
       setLoading(false);
     }
@@ -85,9 +80,9 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
         <DialogHeader>
           <DialogTitle>
             {step === 'input' && "Define Your Restaking Strategy"}
-            {step === 'opportunities' && "Available AVS Opportunities"}
             {step === 'analysis' && "AI Analysis of Your Strategy"}
-            {step === 'recommendation' && "AI-Recommended Allocation"}
+            {step === 'opportunities' && "Available AVS Opportunities"}
+            {step === 'recommendation' && "Recommended Allocation"}
           </DialogTitle>
         </DialogHeader>
 
@@ -111,69 +106,6 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                 disabled={!strategy.trim() || loading}
               >
                 {loading ? "Analyzing Strategy..." : "Analyze Strategy"}
-              </Button>
-            </>
-          )}
-
-          {step === 'opportunities' && (
-            <>
-              <p className="text-sm text-muted-foreground mb-4">
-                Analyzing these AVS opportunities based on your strategy:
-              </p>
-              <div className="space-y-4">
-                {opportunities.map((opportunity) => (
-                  <Card key={opportunity.protocol.name} className="border border-muted">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <Server className="w-5 h-5 text-primary" />
-                          <span className="font-medium">{opportunity.protocol.name}</span>
-                        </div>
-                        {opportunity.sentiment ? (
-                          <div className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(opportunity.sentiment)}`}>
-                            Sentiment: {opportunity.sentiment.toFixed(1)}/10
-                          </div>
-                        ) : (
-                          <div className="text-sm px-2 py-1 rounded bg-muted animate-pulse">
-                            Analyzing...
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {opportunity.context}
-                      </p>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4" />
-                          <span>APY: {opportunity.protocol.apy}%</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Shield className="w-4 h-4" />
-                          <span>Security: {opportunity.protocol.securityScore}/100</span>
-                        </div>
-                      </div>
-                      {opportunity.analysis && (
-                        <div className="mt-4 pt-4 border-t border-border">
-                          <h4 className="font-medium mb-2">Analysis:</h4>
-                          <ul className="list-disc list-inside space-y-1">
-                            {opportunity.analysis.map((point, i) => (
-                              <li key={i} className="text-muted-foreground text-sm">
-                                {point}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              <Button 
-                className="w-full mt-4" 
-                onClick={() => setStep('analysis')}
-                disabled={loading}
-              >
-                Continue to Analysis
               </Button>
             </>
           )}
@@ -229,11 +161,67 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                 </Card>
                 <Button 
                   className="w-full mt-4" 
-                  onClick={() => setStep('recommendation')}
+                  onClick={() => setStep('opportunities')}
                 >
-                  View Recommendations
+                  View Available Opportunities
                 </Button>
               </div>
+            </>
+          )}
+
+          {step === 'opportunities' && (
+            <>
+              <p className="text-sm text-muted-foreground mb-4">
+                Available AVS opportunities based on your strategy:
+              </p>
+              <div className="space-y-4">
+                {opportunities.map((opportunity) => (
+                  <Card key={opportunity.protocol.name} className="border border-muted">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Server className="w-5 h-5 text-primary" />
+                          <span className="font-medium">{opportunity.protocol.name}</span>
+                        </div>
+                        <div className={`text-sm px-2 py-1 rounded bg-muted ${getSentimentColor(opportunity.sentiment || 0)}`}>
+                          Sentiment: {opportunity.sentiment?.toFixed(1)}/10
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {opportunity.context}
+                      </p>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4" />
+                          <span>APY: {opportunity.protocol.apy}%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          <span>Security: {opportunity.protocol.securityScore}/100</span>
+                        </div>
+                      </div>
+                      {opportunity.analysis && (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <h4 className="font-medium mb-2">Analysis:</h4>
+                          <ul className="list-disc list-inside space-y-1">
+                            {opportunity.analysis.map((point, i) => (
+                              <li key={i} className="text-muted-foreground text-sm">
+                                {point}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <Button 
+                className="w-full mt-4" 
+                onClick={() => setStep('recommendation')}
+              >
+                View Recommendations
+              </Button>
             </>
           )}
 
@@ -275,8 +263,8 @@ export function RestakingStrategyDialog({ open, onOpenChange, protocols, onConfi
                           </div>
                           <div className="flex justify-between">
                             <span>Slashing Risk</span>
-                            <span className={opportunity.protocol.slashingRisk > 0.05 ? 'text-destructive' : 'text-primary'}>
-                              {(opportunity.protocol.slashingRisk * 100).toFixed(2)}%
+                            <span className={opportunity.protocol.slashingRisk ? opportunity.protocol.slashingRisk > 0.05 ? 'text-destructive' : 'text-primary' : 'text-muted-foreground'}>
+                              {opportunity.protocol.slashingRisk ? (opportunity.protocol.slashingRisk * 100).toFixed(2) : 'N/A'}%
                             </span>
                           </div>
                         </div>
